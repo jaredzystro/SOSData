@@ -1,0 +1,181 @@
+---
+title: "State Of Organic Seed Producer Survey"
+resource_files:
+- www/cropped-logo-header.png
+runtime: shiny
+output:
+  html_document:
+    css: https://seedalliance.org/wp-content/themes/showcase-pro/style.css?ver=1.0.2
+    highlight: null
+    number_sections: no
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+---
+
+```{css, echo=FALSE}
+h1{font-size:18px;}
+h2{font-size:16px;}
+.title {
+  background-color: #2d677f;
+  color:#ffffff;
+  padding-right: 200px;
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+### Load
+rm(list=ls())
+
+install_or_load_pack <- function(pack){
+  # from https://nhsrcommunity.com/blog/a-simple-function-to-install-and-load-packages-in-r/
+  create.pkg <- pack[!(pack %in% installed.packages()[, "Package"])]
+  if (length(create.pkg))
+  {
+    install.packages(create.pkg, dependencies = TRUE)
+  }
+  sapply(pack, require, character.only = TRUE)
+}
+
+# Initialize ----
+packages <- c("survey","ggplot2","shiny","dplyr")
+
+install_or_load_pack(packages)
+library(survey)
+library(ggplot2)
+library(shiny)
+library(dplyr)
+
+
+#install.packages("zipcode_1.0.tar.gz", repos = NULL, type = "source")
+
+# devtools::install_github('cttobin/ggthemr')
+# library(ggthemr)
+# ggthemr('fresh')
+
+#library(zipcode)
+zipcode <- read.csv("zipcode.csv", as.is = TRUE)
+
+
+data <- read.csv("PreliminaryData03.04.csv")
+
+data$RespID <- factor(data$RespID)
+tot_pop <- 14217
+
+data$weight <- length(data$RespID) / tot_pop
+
+getzipcode <- zipcode$state
+names(getzipcode) <- zipcode$zip
+data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
+
+### Q05AA is percent of vegetable seed acres planted to organic seed
+data$vegpercent <- data$Q05AA/100
+
+mydesign <- 
+  svydesign( 
+    ids = ~1 , 
+    data = data , 
+    weights = ~weight
+  )
+
+### Scratch
+
+# ci <- confint(svyciprop(~vegpercent, design=subset(mydesign,state=="CA"), method="logit", na.rm=TRUE))
+# 
+# mean <- svymean(~vegpercent, design=subset(mydesign,state=="CA"), method="logit", na.rm=TRUE)
+# 
+# 
+# svyby(~Q07AA, list(data$state=="IN"), mydesign, svymean,vartype="ci")
+
+BoxPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  if (input$state == "All") {
+      sub <- mydesign
+    }
+    else {
+      sub<-subset(mydesign,state==input$state)
+    }
+      
+    survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
+
+    responses <- sub$variables[question]
+    n <- length(responses[!is.na(responses)])
+    
+survey_summary <- data.frame (
+  "year" = "2020",
+  "question" = question,
+  "mean" = as.data.frame(survey_mean)$mean,
+  "CI" = as.data.frame(survey_mean)[[question]]*1.96,
+  "n" = n
+)
+
+ggplot(survey_summary, aes(x=question, y=mean)) +
+  geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
+  geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), inherit.aes = FALSE, size=.75, width=.1) +
+  ylim(0,100) +
+  geom_text(aes(label=round(mean,1), vjust=4), color="black", size=10) +
+  geom_text(aes(label=paste0("n = ",n), vjust=6), color="black", size=10) +
+  theme_linedraw(base_size = 30) +
+  theme(legend.position="none") +
+  labs(title = title,
+        x = xlab, y = ylab) +
+    theme(plot.title = element_text(hjust = 0.5))
+  
+}
+
+
+```
+
+<img src="www/cropped-logo-header.png" style="position:absolute;top:25px;right:0px;width:200px;height:75px" />
+
+# Introduction
+<b>Welcome to the State Of Organic Seed Producer Survey interactive report.</b>
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur non neque tempus, suscipit lacus ac, semper dui. Ut ultricies velit vitae placerat lacinia. Suspendisse et tincidunt magna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam porta vitae dolor imperdiet tincidunt. Donec ut hendrerit ex. Aliquam erat volutpat.
+
+Suspendisse commodo consectetur ligula quis rutrum. Curabitur id nisi vulputate, laoreet velit sed, fringilla lectus. Nam consectetur maximus mattis. Cras eget augue vel justo volutpat pretium. Aenean rutrum quis nunc et eleifend. Quisque a maximus metus. In nec est metus. Cras in venenatis ante. Donec eget elit ut tellus posuere faucibus. Mauris consectetur lobortis sapien. Nullam a pellentesque tortor, eget malesuada lacus. Sed vel facilisis nisl.
+
+
+# Filter
+<style>
+.Filter { background-color: #f2f2f2;}
+</style>
+
+```{r, Filter, echo=FALSE}
+selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All")
+```
+
+# Vegetable Acreage
+
+```{r, Veg, echo=FALSE}
+    renderPlot({
+    
+      BoxPlot (data = data, input = input, question = "Q05AA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
+      
+    })
+
+```
+
+# Cover Crop Acreage
+
+```{r, Cover, echo=FALSE}
+    renderPlot({
+    
+     BoxPlot (data = data, input = input, question = "Q06AA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Cover Crop Acreage"), ylab = "Percentage")
+      
+})
+```
+
+# Field Crop Acreage
+
+```{r, Field, echo=FALSE}
+    renderPlot({
+    
+     BoxPlot (data = data, input = input, question = "Q07AA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Field Crop Acreage"), ylab = "Percentage")
+      
+})
+```
