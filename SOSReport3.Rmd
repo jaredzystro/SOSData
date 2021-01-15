@@ -36,19 +36,22 @@ install_or_load_pack <- function(pack){
   create.pkg <- pack[!(pack %in% installed.packages()[, "Package"])]
   if (length(create.pkg))
   {
-    install.packages(create.pkg, dependencies = TRUE)
+    install.packages(create.pkg, dependencies = TRUE, repos = "http://cran.us.r-project.org")
   }
   sapply(pack, require, character.only = TRUE)
 }
 
-# Initialize ----
-packages <- c("survey","ggplot2","shiny","dplyr")
 
-install_or_load_pack(packages)
+# Initialize ----
+#packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData")
+#install_or_load_pack(packages)
 library(survey)
 library(ggplot2)
 library(shiny)
 library(dplyr)
+library(srvyr)
+library(sf)
+library(spData)
 
 
 #install.packages("zipcode_1.0.tar.gz", repos = NULL, type = "source")
@@ -59,9 +62,24 @@ library(dplyr)
 
 #library(zipcode)
 zipcode <- read.csv("zipcode.csv", as.is = TRUE)
+data <- read.csv("NORA19_merged.csv")
+key <- read.csv("question_labels.csv")
+
+# Remove missing data keys
+data$Q05_2_o <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
 
 
-data <- read.csv("PreliminaryData03.04.csv")
+data$Q05_2_o <- as.numeric(data$Q05_2_o)
+
+#Split into bins
+data$Q05_2_o_bin <- cut(data$Q05_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$Q05_2_o_bin <- factor(data$Q05_2_o_bin)
+
+data$Q05aA <- as.numeric(data$Q05aA)
+data$Q06aA <- as.numeric(data$Q06aA)
+data$Q07aA <- as.numeric(data$Q07aA)
+
+
 
 data$RespID <- factor(data$RespID)
 tot_pop <- 14217
@@ -72,9 +90,6 @@ getzipcode <- zipcode$state
 names(getzipcode) <- zipcode$zip
 data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
 
-### Q05AA is percent of vegetable seed acres planted to organic seed
-data$vegpercent <- data$Q05AA/100
-
 mydesign <- 
   svydesign( 
     ids = ~1 , 
@@ -84,6 +99,91 @@ mydesign <-
 
 ### Scratch
 
+
+# "spDataLarge" , "rnaturalearth", "rnaturalearthdata"
+#install_or_load_pack(packages)
+# install.packages("rnaturalearthhires", repos = "http://packages.ropensci.org", type = "source")
+
+data("us_states")
+
+# states <- ne_states(country = "united states of america", returnclass = "sf")
+
+rownames(zipcode) <- zipcode$zip
+zips<-zipcode[data$Q04A, 1:6]
+zips<-zips[zips$state!="HI",]
+
+# ggplot(zips,aes(longitude,latitude)) +
+#   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
+
+# ggplot(data = us_states) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(us_states), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
+#     plot.background = element_rect(fill = "white"))
+# 
+# ##
+# 
+# input<-list()
+# input$state <- "WI"
+# 
+# if (input$state!="All") {
+#   
+#   full_name <- state.name[match(input$state,state.abb)]
+#   filtered_states <- us_states[us_states$NAME==full_name,]
+#   filtered_zips <- zips[zips$state==input$state,]
+# } else {
+#   filtered_states <- us_states
+#   filtered_zips <- zips
+# }
+# 
+# ggplot(data = filtered_states) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(filtered_states), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
+#     plot.background = element_rect(fill = "white"))
+# ##
+# 
+# state.name[match("NY",state.abb)]
+# 
+# CA <- us_states[us_states$NAME=="California",]
+# CA_zip <- zips[zips$state=="CA",]
+# 
+# ggplot(data = CA) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = CA_zip, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(CA), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
+#     plot.background = element_rect(fill = "white"))
+
+
+# install.packages("maps")
+# library(maps)
+# 
+# rownames(zipcode) <- zipcode$zip
+# zips<-zipcode[data$Q04A, 1:6]
+# 
+# us<-map_data('state')
+# 
+# ggplot(zips,aes(longitude,latitude)) +
+#   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
+# 
+# map <- get_openstreetmap(bbox = c("left" = -125, "bottom" = 25.75, "right" = -67, "top" = 49))
+# p <- ggmap(map)+geom_point(aes(x=longitude, y=latitude), data=zips, alpha=.5)
+# print(p)
 # ci <- confint(svyciprop(~vegpercent, design=subset(mydesign,state=="CA"), method="logit", na.rm=TRUE))
 # 
 # mean <- svymean(~vegpercent, design=subset(mydesign,state=="CA"), method="logit", na.rm=TRUE)
@@ -91,29 +191,64 @@ mydesign <-
 # 
 # svyby(~Q07AA, list(data$state=="IN"), mydesign, svymean,vartype="ci")
 
+#input$state <- c("CA","OR")
+
+MapPlot <- function (input) {
+  
+  validate(need(input$state, 'Please choose a state.'))
+  
+  if (input$state=="All") {
+    
+    filtered_states <- us_states
+    filtered_zips <- zips
+    
+  } else {
+    
+    full_name <- state.name[match(input$state,state.abb)]
+    print(full_name)
+    filtered_states <- us_states[us_states$NAME %in% full_name,]
+    filtered_zips <- zips[zips$state==input$state,]
+    
+  }
+  
+  ggplot(data = filtered_states) +
+    geom_sf(colour = "black", fill = "white") +
+    geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21, size=3) +
+    coord_sf(crs = st_crs(filtered_states), datum = NA) +
+    theme(
+      panel.grid = element_blank(),
+      line = element_blank(),
+      rect = element_blank(),
+      text = element_blank(),
+      plot.background = element_rect(fill = "white"))
+   
+}
+
 BoxPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  validate(need(input$state, 'Please choose a state.'))
   
   if (input$state == "All") {
       sub <- mydesign
     }
     else {
-      sub<-subset(mydesign,state==input$state)
+      sub<-subset(mydesign,state %in% input$state)
     }
-      
+    
     survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
-
     responses <- sub$variables[question]
     n <- length(responses[!is.na(responses)])
     
-survey_summary <- data.frame (
-  "year" = "2020",
-  "question" = question,
-  "mean" = as.data.frame(survey_mean)$mean,
-  "CI" = as.data.frame(survey_mean)[[question]]*1.96,
-  "n" = n
-)
+  survey_summary <- data.frame (
+    "year" = "2020",
+    "question" = question,
+    "mean" = as.data.frame(survey_mean)$mean,
+    "CI" = as.data.frame(survey_mean)[[question]]*1.96,
+    "n" = n
+  )
 
-ggplot(survey_summary, aes(x=question, y=mean)) +
+##Temp add p
+p<-ggplot(survey_summary, aes(x=question, y=mean)) +
   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
   geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), inherit.aes = FALSE, size=.75, width=.1) +
   ylim(0,100) +
@@ -124,9 +259,104 @@ ggplot(survey_summary, aes(x=question, y=mean)) +
   labs(title = title,
         x = xlab, y = ylab) +
     theme(plot.title = element_text(hjust = 0.5))
+#Temp add p
+plot(p)
   
 }
+      
+BinPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  validate(need(input$state, 'Please choose a state.'))
+  
+  data <- data[!is.na(data[question]),]
+  mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+  
+  if (input$state == "All") {
+      sub <- mydesign
+    }
+    else {
+      sub<-subset(mydesign,state %in% input$state)
+    }
+    
+    # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
+    # responses <- sub$variables[question]
+    # n <- length(responses[!is.na(responses)])
+    
+  out <- sub %>%
+    group_by_at(question) %>%
+    summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+    mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
 
+  ggplot(data = out, aes_string(x = question, y = "summary")) +
+    geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
+    geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
+    ylim(0,100) +
+    theme_linedraw(base_size = 30) +
+    theme(legend.position="none") +
+    labs(title = title,
+         x = xlab, y = ylab) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      theme(axis.text.x=element_text(angle=45,hjust=1))
+}
+    
+#   BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state,"Organic Acreage"), ylab = "")
+  
+  ####
+    
+## Scratch
+
+# input<-list()
+# input$state <- "All"
+# 
+#       p <- BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
+#       print(p)
+      
+# survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
+# responses <- sub$variables[question]
+# n <- length(responses[!is.na(responses)])
+      
+# survey_summary <- data.frame (
+#     "year" = "2020",
+#     "question" = question,
+#     "mean" = as.data.frame(survey_mean)$mean,
+#     "CI" = as.data.frame(survey_mean)[[question]]*1.96,
+#     "n" = n
+#   )
+  
+# data <- data[!is.na(data$Q05_2_o_bin),]
+#       
+# mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+# 
+# # summ <- mydesign %>%
+# #     group_by(Q05_2_o_bin) %>%
+# #     summarize(proportion = survey_mean(proportion = TRUE, vartype = "se", prop_method = "logit"))
+# #       
+# # print(summ)
+# 
+# out <- mydesign %>%
+#   group_by(Q05_2_o_bin) %>%
+#   summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+#   mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+# 
+# # ggplot(data = out, aes(x = Q05_2_o_bin, y = summary, ymin = summary_low, ymax = summary_upp)) +
+# #   geom_col(stat = "identity", position = "dodge") +
+# #   geom_errorbar(position = position_dodge(width = 0.9), width = 0.1) +
+# #   geom_text(aes(y = 0, label = n), position = position_dodge(width = 0.9), vjust = -1)
+#       
+# 
+# p<-ggplot(data = out, aes(x = Q05_2_o_bin, y = summary)) +
+#   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
+#   geom_errorbar(alpha = 1, mapping = aes(Q05_2_o_bin, ymin = summary_low, ymax = summary_upp), inherit.aes = FALSE, size=.75, width=.1) +
+#   ylim(0,100) +
+#   theme_linedraw(base_size = 30) +
+#   theme(legend.position="none") +
+#   # labs(title = title,
+#   #       x = xlab, y = ylab) +
+#  #   theme(plot.title = element_text(hjust = 0.5)) +
+#     theme(axis.text.x=element_text(angle=45,hjust=1))
+# 
+# #Temp add p
+# plot(p)
 
 ```
 
@@ -135,10 +365,13 @@ ggplot(survey_summary, aes(x=question, y=mean)) +
 # Introduction
 <b>Welcome to the State Of Organic Seed Producer Survey interactive report.</b>
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur non neque tempus, suscipit lacus ac, semper dui. Ut ultricies velit vitae placerat lacinia. Suspendisse et tincidunt magna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam porta vitae dolor imperdiet tincidunt. Donec ut hendrerit ex. Aliquam erat volutpat.
+State of Organic Seed is a project of Organic Seed Alliance that monitors the status of organic seed in the US and provides a roadmap for increasing the diversity, quality, and integrity of organic seed available.
 
-Suspendisse commodo consectetur ligula quis rutrum. Curabitur id nisi vulputate, laoreet velit sed, fringilla lectus. Nam consectetur maximus mattis. Cras eget augue vel justo volutpat pretium. Aenean rutrum quis nunc et eleifend. Quisque a maximus metus. In nec est metus. Cras in venenatis ante. Donec eget elit ut tellus posuere faucibus. Mauris consectetur lobortis sapien. Nullam a pellentesque tortor, eget malesuada lacus. Sed vel facilisis nisl.
+In 2020, we conducted a national survey of certified organic crop growers to assess their attitudes and perceptions regarding organic seed, their current use of organic seed, and any obstacles that restrict organic seed sourcing. The survey also asked which crops and traits should be prioritized through organic plant breeding programs. Many additional topics were covered in this survey. We conducted a survey in 2010 and 2015 that asked many of the same questions, allowing us to measure our progress over the last five and ten years. 
 
+This interactive report presents, in graphical form, the results of the latest organic farmer survey. It allow you to look at the responses from all farmers, or to view the responses from specific states. 
+
+This survey was conducted in conjunction with the Organic Farming Research Foundation and was funding by the USDA Organic Research and Education Initiative.
 
 # Filter
 <style>
@@ -146,36 +379,57 @@ Suspendisse commodo consectetur ligula quis rutrum. Curabitur id nisi vulputate,
 </style>
 
 ```{r, Filter, echo=FALSE}
-selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All")
+selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 ```
 
-# Vegetable Acreage
+# Map of Respondents
 
-```{r, Veg, echo=FALSE}
+```{r, Map, echo=FALSE}
     renderPlot({
-    
-      BoxPlot (data = data, input = input, question = "Q05AA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
+      MapPlot (input = input)
       
     })
 
 ```
 
-# Cover Crop Acreage
+# Total Organic Acreage
+
+```{r, Veg, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste(paste(input$state,collapse = " "),"Organic Acreage"), ylab = "Proportion of Responses")
+      
+    })
+
+```
+
+# Organic Vegetable Seed Use
+
+```{r, Acres, echo=FALSE}
+    renderPlot({
+    
+      BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
+      
+    })
+
+```
+
+# Organic Cover Crop Seed Use
 
 ```{r, Cover, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q06AA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Cover Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
       
 })
 ```
 
-# Field Crop Acreage
+# Organic Field Crop Seed Use
 
 ```{r, Field, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q07AA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Field Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 })
 ```
