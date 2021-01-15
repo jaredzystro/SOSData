@@ -81,7 +81,6 @@ data$weight <- length(data$RespID) / tot_pop
 getzipcode <- zipcode$state
 names(getzipcode) <- zipcode$zip
 data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
-data$lat
 
 mydesign <- 
   svydesign( 
@@ -91,6 +90,47 @@ mydesign <-
   )
 
 ### Scratch
+
+# packages <- c("sf", "spData", "spDataLarge" , "rnaturalearth", "rnaturalearthdata")
+# install_or_load_pack(packages)
+# install.packages("rnaturalearthhires", repos = "http://packages.ropensci.org", type = "source")
+# 
+# data("us_states")
+# 
+# # states <- ne_states(country = "united states of america", returnclass = "sf")
+# 
+# rownames(zipcode) <- zipcode$zip
+# zips<-zipcode[data$Q04A, 1:6]
+# zips<-zips[zips$state!="HI",]
+# 
+# # ggplot(zips,aes(longitude,latitude)) +
+# #   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
+# 
+# ggplot(data = us_states) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(us_states), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(), 
+#     line = element_blank(), 
+#     rect = element_blank(), 
+#     text = element_blank(), 
+#     plot.background = element_rect(fill = "white"))
+# 
+# CA <- us_states[us_states$NAME=="California",]
+# CA_zip <- zips[zips$state=="CA",]
+# 
+# ggplot(data = CA) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = CA_zip, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(CA), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(), 
+#     line = element_blank(), 
+#     rect = element_blank(), 
+#     text = element_blank(), 
+#     plot.background = element_rect(fill = "white"))
+
 
 # install.packages("maps")
 # library(maps)
@@ -153,11 +193,11 @@ plot(p)
 
 ## Scratch
 
-input<-list()
-input$state <- "All"
-
-      p <- BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
-      print(p)
+# input<-list()
+# input$state <- "All"
+# 
+#       p <- BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
+#       print(p)
       
 # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
 # responses <- sub$variables[question]
@@ -171,47 +211,77 @@ input$state <- "All"
 #     "n" = n
 #   )
       
-      mydesign <- 
-  svydesign( 
-    ids = ~1 , 
-    data = data , 
-    weights = ~weight
-  )
-      
-data <- data[!is.na(data$Q05_2_o_bin),]
-      
-mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
-
-summ <- mydesign %>%
-    group_by(Q05_2_o_bin) %>%
-    summarize(proportion = survey_mean(proportion = TRUE, vartype = "se", prop_method = "logit"))
-      
-print(summ)
-
-out <- mydesign %>%
-  group_by(Q05_2_o_bin) %>%
+BinPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  data <- data[!is.na(data[question]),]
+  mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+  
+  if (input$state == "All") {
+      sub <- mydesign
+    }
+    else {
+      sub<-subset(mydesign,state %in% input$state)
+    }
+    
+    # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
+    # responses <- sub$variables[question]
+    # n <- length(responses[!is.na(responses)])
+    
+out <- sub %>%
+  group_by_at(question) %>%
   summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
   mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
 
-# ggplot(data = out, aes(x = Q05_2_o_bin, y = summary, ymin = summary_low, ymax = summary_upp)) +
-#   geom_col(stat = "identity", position = "dodge") +
-#   geom_errorbar(position = position_dodge(width = 0.9), width = 0.1) +
-#   geom_text(aes(y = 0, label = n), position = position_dodge(width = 0.9), vjust = -1)
-      
-
-p<-ggplot(data = out, aes(x = Q05_2_o_bin, y = summary)) +
+ggplot(data = out, aes_string(x = question, y = "summary")) +
   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
-  geom_errorbar(alpha = 1, mapping = aes(Q05_2_o_bin, ymin = summary_low, ymax = summary_upp), inherit.aes = FALSE, size=.75, width=.1) +
+  geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
   ylim(0,100) +
   theme_linedraw(base_size = 30) +
   theme(legend.position="none") +
-  # labs(title = title,
-  #       x = xlab, y = ylab) +
- #   theme(plot.title = element_text(hjust = 0.5)) +
+   labs(title = title,
+         x = xlab, y = ylab) +
+    theme(plot.title = element_text(hjust = 0.5)) +
     theme(axis.text.x=element_text(angle=45,hjust=1))
-
-#Temp add p
-plot(p)
+}
+    
+#   BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state,"Organic Acreage"), ylab = "")
+  
+  ####
+      
+# data <- data[!is.na(data$Q05_2_o_bin),]
+#       
+# mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+# 
+# # summ <- mydesign %>%
+# #     group_by(Q05_2_o_bin) %>%
+# #     summarize(proportion = survey_mean(proportion = TRUE, vartype = "se", prop_method = "logit"))
+# #       
+# # print(summ)
+# 
+# out <- mydesign %>%
+#   group_by(Q05_2_o_bin) %>%
+#   summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+#   mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+# 
+# # ggplot(data = out, aes(x = Q05_2_o_bin, y = summary, ymin = summary_low, ymax = summary_upp)) +
+# #   geom_col(stat = "identity", position = "dodge") +
+# #   geom_errorbar(position = position_dodge(width = 0.9), width = 0.1) +
+# #   geom_text(aes(y = 0, label = n), position = position_dodge(width = 0.9), vjust = -1)
+#       
+# 
+# p<-ggplot(data = out, aes(x = Q05_2_o_bin, y = summary)) +
+#   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
+#   geom_errorbar(alpha = 1, mapping = aes(Q05_2_o_bin, ymin = summary_low, ymax = summary_upp), inherit.aes = FALSE, size=.75, width=.1) +
+#   ylim(0,100) +
+#   theme_linedraw(base_size = 30) +
+#   theme(legend.position="none") +
+#   # labs(title = title,
+#   #       x = xlab, y = ylab) +
+#  #   theme(plot.title = element_text(hjust = 0.5)) +
+#     theme(axis.text.x=element_text(angle=45,hjust=1))
+# 
+# #Temp add p
+# plot(p)
 
 ```
 
@@ -234,9 +304,20 @@ Suspendisse commodo consectetur ligula quis rutrum. Curabitur id nisi vulputate,
 selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 ```
 
-# Vegetable Acreage
+# Total Organic Acreage
 
 ```{r, Veg, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state," Organic Acreage"), ylab = "Proportion of Responses")
+      
+    })
+
+```
+
+# Organic Vegetable Seed Use
+
+```{r, Acres, echo=FALSE}
     renderPlot({
     
       BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
@@ -245,7 +326,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
-# Cover Crop Acreage
+# Organic Cover Crop Seed Use
 
 ```{r, Cover, echo=FALSE}
     renderPlot({
@@ -255,7 +336,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 })
 ```
 
-# Field Crop Acreage
+# Organic Field Crop Seed Use
 
 ```{r, Field, echo=FALSE}
     renderPlot({
