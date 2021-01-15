@@ -43,8 +43,14 @@ install_or_load_pack <- function(pack){
 
 
 # Initialize ----
-packages <- c("survey","ggplot2","shiny","dplyr","srvyr")
-install_or_load_pack(packages)
+#packages <- c("survey","ggplot2","shiny","dplyr","srvyr")
+#install_or_load_pack(packages)
+library(survey)
+library(ggplot2)
+library(shiny)
+library(dplyr)
+library(srvyr)
+
 
 #install.packages("zipcode_1.0.tar.gz", repos = NULL, type = "source")
 
@@ -290,10 +296,13 @@ ggplot(data = out, aes_string(x = question, y = "summary")) +
 # Introduction
 <b>Welcome to the State Of Organic Seed Producer Survey interactive report.</b>
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur non neque tempus, suscipit lacus ac, semper dui. Ut ultricies velit vitae placerat lacinia. Suspendisse et tincidunt magna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam porta vitae dolor imperdiet tincidunt. Donec ut hendrerit ex. Aliquam erat volutpat.
+State of Organic Seed is a project of Organic Seed Alliance that monitors the status of organic seed in the US and provides a roadmap for increasing the diversity, quality, and integrity of organic seed available.
 
-Suspendisse commodo consectetur ligula quis rutrum. Curabitur id nisi vulputate, laoreet velit sed, fringilla lectus. Nam consectetur maximus mattis. Cras eget augue vel justo volutpat pretium. Aenean rutrum quis nunc et eleifend. Quisque a maximus metus. In nec est metus. Cras in venenatis ante. Donec eget elit ut tellus posuere faucibus. Mauris consectetur lobortis sapien. Nullam a pellentesque tortor, eget malesuada lacus. Sed vel facilisis nisl.
+In 2020, we conducted a national survey of certified organic crop growers to assess their attitudes and perceptions regarding organic seed, their current use of organic seed, and any obstacles that restrict organic seed sourcing. The survey also asked which crops and traits should be prioritized through organic plant breeding programs. Many additional topics were covered in this survey. We conducted a survey in 2010 and 2015 that asked many of the same questions, allowing us to measure our progress over the last five and ten years. 
 
+This interactive report presents, in graphical form, the results of the latest organic farmer survey. It allow you to look at the responses from all farmers, or to view the responses from specific states. 
+
+This survey was conducted in conjunction with the Organic Farming Research Foundation and was funding by the USDA Organic Research and Education Initiative.
 
 # Filter
 <style>
