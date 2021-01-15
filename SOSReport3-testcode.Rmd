@@ -43,8 +43,11 @@ install_or_load_pack <- function(pack){
 
 
 # Initialize ----
+
+# Comment out package installation prior to deploying
 #packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData")
 #install_or_load_pack(packages)
+
 library(survey)
 library(ggplot2)
 library(shiny)
@@ -61,34 +64,40 @@ library(spData)
 # ggthemr('fresh')
 
 #library(zipcode)
+
+
 zipcode <- read.csv("zipcode.csv", as.is = TRUE)
 data <- read.csv("NORA19_merged.csv")
 key <- read.csv("question_labels.csv")
 
+# Q05_2_o is operation size
+# These lines split it into bins for ploting
+
 # Remove missing data keys
 data$Q05_2_o <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
 
-
 data$Q05_2_o <- as.numeric(data$Q05_2_o)
 
-#Split into bins
+# Split into bins and make bins factors
 data$Q05_2_o_bin <- cut(data$Q05_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data$Q05_2_o_bin <- factor(data$Q05_2_o_bin)
 
+# Converting responses to numberic form
 data$Q05aA <- as.numeric(data$Q05aA)
 data$Q06aA <- as.numeric(data$Q06aA)
 data$Q07aA <- as.numeric(data$Q07aA)
 
-
-
+#Convert Respondent ID to factor
 data$RespID <- factor(data$RespID)
-tot_pop <- 14217
 
-data$weight <- length(data$RespID) / tot_pop
-
+# Add column of state abbrivations to data based on zipcode
 getzipcode <- zipcode$state
 names(getzipcode) <- zipcode$zip
 data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
+
+# Create weight and survey object for survey based on current total population of organic producers (14,217 as of 2020)
+tot_pop <- 14217
+data$weight <- length(data$RespID) / tot_pop
 
 mydesign <- 
   svydesign( 
@@ -97,20 +106,20 @@ mydesign <-
     weights = ~weight
   )
 
-### Scratch
+# Get sp type shape data for states
+# Dropping HI for now because it is so far from everything
+# Will need a way to incorperate eventually
+data("us_states")
+rownames(zipcode) <- zipcode$zip
+zips<-zipcode[data$Q04A, 1:6]
+zips<-zips[zips$state!="HI",]
 
+### Scratch -- mapping code experiments
+# states <- ne_states(country = "united states of america", returnclass = "sf")
 
 # "spDataLarge" , "rnaturalearth", "rnaturalearthdata"
 #install_or_load_pack(packages)
 # install.packages("rnaturalearthhires", repos = "http://packages.ropensci.org", type = "source")
-
-data("us_states")
-
-# states <- ne_states(country = "united states of america", returnclass = "sf")
-
-rownames(zipcode) <- zipcode$zip
-zips<-zipcode[data$Q04A, 1:6]
-zips<-zips[zips$state!="HI",]
 
 # ggplot(zips,aes(longitude,latitude)) +
 #   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
@@ -193,8 +202,10 @@ zips<-zips[zips$state!="HI",]
 
 #input$state <- c("CA","OR")
 
+### Function to generate map based on producer zip and selected states ###
 MapPlot <- function (input) {
   
+# Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose a state.'))
   
   if (input$state=="All") {
@@ -202,6 +213,7 @@ MapPlot <- function (input) {
     filtered_states <- us_states
     filtered_zips <- zips
     
+# Filter zip code points and state shapes based on input$state
   } else {
     
     full_name <- state.name[match(input$state,state.abb)]
@@ -211,6 +223,10 @@ MapPlot <- function (input) {
     
   }
   
+# ggplot of state shapes (goem_sf) and zip codes (goem_point)
+# shape=21 is open circle
+# coords_sf is set to get rid of longitude and latitude notations
+# theme is set to get rid of lines
   ggplot(data = filtered_states) +
     geom_sf(colour = "black", fill = "white") +
     geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21, size=3) +
@@ -224,30 +240,40 @@ MapPlot <- function (input) {
    
 }
 
+### Function to make box plots of question means and errors
 BoxPlot <- function (data, input, question, title, xlab, ylab) {
-  
+
+  # Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose a state.'))
-  
+
   if (input$state == "All") {
       sub <- mydesign
     }
     else {
+# filter to only survey data for correct states
       sub<-subset(mydesign,state %in% input$state)
     }
-    
+
+    # Compile mean, error and total number of responses
     survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
     responses <- sub$variables[question]
     n <- length(responses[!is.na(responses)])
-    
-  survey_summary <- data.frame (
-    "year" = "2020",
-    "question" = question,
-    "mean" = as.data.frame(survey_mean)$mean,
-    "CI" = as.data.frame(survey_mean)[[question]]*1.96,
-    "n" = n
-  )
 
-##Temp add p
+    # Create new data frame from compiled data for ggplot
+    survey_summary <- data.frame (
+     "year" = "2020",
+      "question" = question,
+      "mean" = as.data.frame(survey_mean)$mean,
+      "CI" = as.data.frame(survey_mean)[[question]]*1.96,
+      "n" = n
+    )
+
+# ggplot plots mean (goem_bar) and error (geom_errorbar)
+# Mean and n are added onto bar via the two geom_text calls
+# Adds labels for the title, x, and y axis based on inputed variables title, xlab, and ylab
+# Currently the y axis is fixed at 1-100, should make that dynamic
+
+##Temp add p to see in RStudio
 p<-ggplot(survey_summary, aes(x=question, y=mean)) +
   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
   geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), inherit.aes = FALSE, size=.75, width=.1) +
@@ -261,13 +287,16 @@ p<-ggplot(survey_summary, aes(x=question, y=mean)) +
     theme(plot.title = element_text(hjust = 0.5))
 #Temp add p
 plot(p)
-  
+
 }
       
+### Function to make box plot for responses that can be split into bins
 BinPlot <- function (data, input, question, title, xlab, ylab) {
   
+# Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose a state.'))
   
+# Remove missing data
   data <- data[!is.na(data[question]),]
   mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
   
@@ -275,18 +304,17 @@ BinPlot <- function (data, input, question, title, xlab, ylab) {
       sub <- mydesign
     }
     else {
+# Filter to input states
       sub<-subset(mydesign,state %in% input$state)
     }
     
-    # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
-    # responses <- sub$variables[question]
-    # n <- length(responses[!is.na(responses)])
-    
+# Create summary data of means and confidence intervals for bins
   out <- sub %>%
     group_by_at(question) %>%
     summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
     mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
 
+# ggplot of means (geom_bar) and error (geom_errorbar) for bins
   ggplot(data = out, aes_string(x = question, y = "summary")) +
     geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
@@ -299,11 +327,11 @@ BinPlot <- function (data, input, question, title, xlab, ylab) {
       theme(axis.text.x=element_text(angle=45,hjust=1))
 }
     
+
+## Scratch code for experimenting with survey summarizing, bin and box plots
+
 #   BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state,"Organic Acreage"), ylab = "")
   
-  ####
-    
-## Scratch
 
 # input<-list()
 # input$state <- "All"
@@ -371,7 +399,7 @@ In 2020, we conducted a national survey of certified organic crop growers to ass
 
 This interactive report presents, in graphical form, the results of the latest organic farmer survey. It allow you to look at the responses from all farmers, or to view the responses from specific states. 
 
-This survey was conducted in conjunction with the Organic Farming Research Foundation and was funding by the USDA Organic Research and Education Initiative.
+This survey was conducted in conjunction with the Organic Farming Research Foundation with funding by the USDA Organic Research and Education Initiative.
 
 # Filter
 <style>
@@ -386,6 +414,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```{r, Map, echo=FALSE}
     renderPlot({
+      
       MapPlot (input = input)
       
     })
