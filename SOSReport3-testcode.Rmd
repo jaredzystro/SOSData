@@ -43,13 +43,15 @@ install_or_load_pack <- function(pack){
 
 
 # Initialize ----
-#packages <- c("survey","ggplot2","shiny","dplyr","srvyr")
+#packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData")
 #install_or_load_pack(packages)
 library(survey)
 library(ggplot2)
 library(shiny)
 library(dplyr)
 library(srvyr)
+library(sf)
+library(spData)
 
 
 #install.packages("zipcode_1.0.tar.gz", repos = NULL, type = "source")
@@ -97,31 +99,61 @@ mydesign <-
 
 ### Scratch
 
-# packages <- c("sf", "spData", "spDataLarge" , "rnaturalearth", "rnaturalearthdata")
-# install_or_load_pack(packages)
+
+# "spDataLarge" , "rnaturalearth", "rnaturalearthdata"
+#install_or_load_pack(packages)
 # install.packages("rnaturalearthhires", repos = "http://packages.ropensci.org", type = "source")
-# 
-# data("us_states")
-# 
-# # states <- ne_states(country = "united states of america", returnclass = "sf")
-# 
-# rownames(zipcode) <- zipcode$zip
-# zips<-zipcode[data$Q04A, 1:6]
-# zips<-zips[zips$state!="HI",]
-# 
-# # ggplot(zips,aes(longitude,latitude)) +
-# #   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
-# 
+
+data("us_states")
+
+# states <- ne_states(country = "united states of america", returnclass = "sf")
+
+rownames(zipcode) <- zipcode$zip
+zips<-zipcode[data$Q04A, 1:6]
+zips<-zips[zips$state!="HI",]
+
+# ggplot(zips,aes(longitude,latitude)) +
+#   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35)
+
 # ggplot(data = us_states) +
 #     geom_sf(colour = "black", fill = "white") +
 #     geom_point(data = zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
 #   coord_sf(crs = st_crs(us_states), datum = NA) +
 #   theme(
-#     panel.grid = element_blank(), 
-#     line = element_blank(), 
-#     rect = element_blank(), 
-#     text = element_blank(), 
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
 #     plot.background = element_rect(fill = "white"))
+# 
+# ##
+# 
+# input<-list()
+# input$state <- "WI"
+# 
+# if (input$state!="All") {
+#   
+#   full_name <- state.name[match(input$state,state.abb)]
+#   filtered_states <- us_states[us_states$NAME==full_name,]
+#   filtered_zips <- zips[zips$state==input$state,]
+# } else {
+#   filtered_states <- us_states
+#   filtered_zips <- zips
+# }
+# 
+# ggplot(data = filtered_states) +
+#     geom_sf(colour = "black", fill = "white") +
+#     geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
+#   coord_sf(crs = st_crs(filtered_states), datum = NA) +
+#   theme(
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
+#     plot.background = element_rect(fill = "white"))
+# ##
+# 
+# state.name[match("NY",state.abb)]
 # 
 # CA <- us_states[us_states$NAME=="California",]
 # CA_zip <- zips[zips$state=="CA",]
@@ -131,10 +163,10 @@ mydesign <-
 #     geom_point(data = CA_zip, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21) +
 #   coord_sf(crs = st_crs(CA), datum = NA) +
 #   theme(
-#     panel.grid = element_blank(), 
-#     line = element_blank(), 
-#     rect = element_blank(), 
-#     text = element_blank(), 
+#     panel.grid = element_blank(),
+#     line = element_blank(),
+#     rect = element_blank(),
+#     text = element_blank(),
 #     plot.background = element_rect(fill = "white"))
 
 
@@ -159,7 +191,42 @@ mydesign <-
 # 
 # svyby(~Q07AA, list(data$state=="IN"), mydesign, svymean,vartype="ci")
 
+#input$state <- c("CA","OR")
+
+MapPlot <- function (input) {
+  
+  validate(need(input$state, 'Please choose a state.'))
+  
+  if (input$state=="All") {
+    
+    filtered_states <- us_states
+    filtered_zips <- zips
+    
+  } else {
+    
+    full_name <- state.name[match(input$state,state.abb)]
+    print(full_name)
+    filtered_states <- us_states[us_states$NAME %in% full_name,]
+    filtered_zips <- zips[zips$state==input$state,]
+    
+  }
+  
+  ggplot(data = filtered_states) +
+    geom_sf(colour = "black", fill = "white") +
+    geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "blue", shape=21, size=3) +
+    coord_sf(crs = st_crs(filtered_states), datum = NA) +
+    theme(
+      panel.grid = element_blank(),
+      line = element_blank(),
+      rect = element_blank(),
+      text = element_blank(),
+      plot.background = element_rect(fill = "white"))
+   
+}
+
 BoxPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  validate(need(input$state, 'Please choose a state.'))
   
   if (input$state == "All") {
       sub <- mydesign
@@ -196,7 +263,46 @@ p<-ggplot(survey_summary, aes(x=question, y=mean)) +
 plot(p)
   
 }
+      
+BinPlot <- function (data, input, question, title, xlab, ylab) {
+  
+  validate(need(input$state, 'Please choose a state.'))
+  
+  data <- data[!is.na(data[question]),]
+  mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+  
+  if (input$state == "All") {
+      sub <- mydesign
+    }
+    else {
+      sub<-subset(mydesign,state %in% input$state)
+    }
+    
+    # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
+    # responses <- sub$variables[question]
+    # n <- length(responses[!is.na(responses)])
+    
+  out <- sub %>%
+    group_by_at(question) %>%
+    summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+    mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
 
+  ggplot(data = out, aes_string(x = question, y = "summary")) +
+    geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
+    geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
+    ylim(0,100) +
+    theme_linedraw(base_size = 30) +
+    theme(legend.position="none") +
+    labs(title = title,
+         x = xlab, y = ylab) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      theme(axis.text.x=element_text(angle=45,hjust=1))
+}
+    
+#   BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state,"Organic Acreage"), ylab = "")
+  
+  ####
+    
 ## Scratch
 
 # input<-list()
@@ -216,44 +322,7 @@ plot(p)
 #     "CI" = as.data.frame(survey_mean)[[question]]*1.96,
 #     "n" = n
 #   )
-      
-BinPlot <- function (data, input, question, title, xlab, ylab) {
   
-  data <- data[!is.na(data[question]),]
-  mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
-  
-  if (input$state == "All") {
-      sub <- mydesign
-    }
-    else {
-      sub<-subset(mydesign,state %in% input$state)
-    }
-    
-    # survey_mean <- svymean(as.formula(paste0("~",question)), sub, na.rm=TRUE)
-    # responses <- sub$variables[question]
-    # n <- length(responses[!is.na(responses)])
-    
-out <- sub %>%
-  group_by_at(question) %>%
-  summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
-  mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-
-ggplot(data = out, aes_string(x = question, y = "summary")) +
-  geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
-  geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
-  ylim(0,100) +
-  theme_linedraw(base_size = 30) +
-  theme(legend.position="none") +
-   labs(title = title,
-         x = xlab, y = ylab) +
-    theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(angle=45,hjust=1))
-}
-    
-#   BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state,"Organic Acreage"), ylab = "")
-  
-  ####
-      
 # data <- data[!is.na(data$Q05_2_o_bin),]
 #       
 # mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
@@ -313,12 +382,22 @@ This survey was conducted in conjunction with the Organic Farming Research Found
 selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 ```
 
+# Map of Respondents
+
+```{r, Map, echo=FALSE}
+    renderPlot({
+      MapPlot (input = input)
+      
+    })
+
+```
+
 # Total Organic Acreage
 
 ```{r, Veg, echo=FALSE}
     renderPlot({
     
-       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste0(input$state," Organic Acreage"), ylab = "Proportion of Responses")
+       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste(paste(input$state,collapse = " "),"Organic Acreage"), ylab = "Proportion of Responses")
       
     })
 
@@ -329,7 +408,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 ```{r, Acres, echo=FALSE}
     renderPlot({
     
-      BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste0(input$state," Vegetable Acreage"), ylab = "Percentage")
+      BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
       
     })
 
@@ -340,7 +419,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 ```{r, Cover, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Cover Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
       
 })
 ```
@@ -350,7 +429,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 ```{r, Field, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste0(input$state," Field Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 })
 ```
