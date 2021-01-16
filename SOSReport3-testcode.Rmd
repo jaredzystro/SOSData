@@ -24,6 +24,14 @@ h2{font-size:16px;}
   padding-left: 10px;
   padding-bottom: 10px;
 }
+
+.box {
+  padding: 1em;
+  background: white;
+  border: 2px solid black;
+  border-radius: 10px;
+}
+
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -42,7 +50,7 @@ install_or_load_pack <- function(pack){
 }
 
 
-# Initialize ----
+### Initialize packages and read data----
 
 # Comment out package installation prior to deploying
 #packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData")
@@ -56,33 +64,71 @@ library(srvyr)
 library(sf)
 library(spData)
 
-
-#install.packages("zipcode_1.0.tar.gz", repos = NULL, type = "source")
-
-# devtools::install_github('cttobin/ggthemr')
-# library(ggthemr)
-# ggthemr('fresh')
-
-#library(zipcode)
-
-
 zipcode <- read.csv("zipcode.csv", as.is = TRUE)
 data <- read.csv("NORA19_merged.csv")
 key <- read.csv("question_labels.csv")
 
-# Q05_2_o is operation size
-# These lines split it into bins for ploting
+### Section for question data wrangling ----
 
+### Q01A is year farm first certified
+# These lines tidy it up and split into bins for plotting
+data$Q01A <- as.numeric(data$Q01A)
+# Convert to years certified
+data$Q01A <- 2020 - data$Q01A
+# Convert to bins
+data$Q01A_bin <- cut(data$Q01A, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
+data$Q01A_bin <- factor(data$Q01A_bin)
+
+### Q05 is whether they had any veg acres
+# Change non-responses to NA
+data$Q05 <- ifelse (data$Q05 == "No answer" | data$Q05 == "partial complete" | data$Q05 == "skipped due to branching", NA, data$Q05)
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data$Q05 <- ifelse (data$Q05 == "Some Annual Vegetable Crop Acres" | data$Q05 == "Some annual vegetable crop acres:", 100, 0) %>%
+              as.numeric()
+
+### Q05_2_o is vegetable acreage
+# These lines split it into bins for plotting
 # Remove missing data keys
 data$Q05_2_o <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
-
 data$Q05_2_o <- as.numeric(data$Q05_2_o)
-
-# Split into bins and make bins factors
+# Convert to bins
 data$Q05_2_o_bin <- cut(data$Q05_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data$Q05_2_o_bin <- factor(data$Q05_2_o_bin)
 
-# Converting responses to numberic form
+### Q06 is whether they had any cover crop acres
+# Change non-responses to NA
+data$Q06 <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data$Q06 <- ifelse (data$Q06 == "Some cover crop/green pasture acres" | data$Q06 == "Some Cover Crops/Green Pasture Acres", 100, 0) %>%
+              as.numeric()
+
+### Q06_2_o is cover crop acreage
+# These lines split it into bins for plotting
+# Remove missing data keys
+data$Q06_2_o <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
+data$Q06_2_o <- as.numeric(data$Q06_2_o)
+# Convert to bins
+data$Q06_2_o_bin <- cut(data$Q06_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$Q06_2_o_bin <- factor(data$Q06_2_o_bin)
+
+
+### Q07 is whether they had any field crop acres
+# Change non-responses to NA
+data$Q07 <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data$Q07 <- ifelse (data$Q07 == "Some field crop acres" | data$Q07 == "Some field crop acres:", 100, 0) %>%
+              as.numeric()
+
+### Q07_2_o is field crop acreage
+# These lines split it into bins for plotting
+# Remove missing data keys
+data$Q07_2_o <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
+data$Q07_2_o <- as.numeric(data$Q07_2_o)
+# Convert to bins
+data$Q07_2_o_bin <- cut(data$Q07_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$Q07_2_o_bin <- factor(data$Q07_2_o_bin)
+
+# Converting responses to numeric form
 data$Q05aA <- as.numeric(data$Q05aA)
 data$Q06aA <- as.numeric(data$Q06aA)
 data$Q07aA <- as.numeric(data$Q07aA)
@@ -90,7 +136,9 @@ data$Q07aA <- as.numeric(data$Q07aA)
 #Convert Respondent ID to factor
 data$RespID <- factor(data$RespID)
 
-# Add column of state abbrivations to data based on zipcode
+### Create additional global variables ----
+
+# Add column of state abbreviations to data based on zipcode
 getzipcode <- zipcode$state
 names(getzipcode) <- zipcode$zip
 data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
@@ -114,7 +162,7 @@ rownames(zipcode) <- zipcode$zip
 zips<-zipcode[data$Q04A, 1:6]
 zips<-zips[zips$state!="HI",]
 
-### Scratch -- mapping code experiments
+### Scratch code -- mapping code experiments
 # states <- ne_states(country = "united states of america", returnclass = "sf")
 
 # "spDataLarge" , "rnaturalearth", "rnaturalearthdata"
@@ -202,7 +250,7 @@ zips<-zips[zips$state!="HI",]
 
 #input$state <- c("CA","OR")
 
-### Function to generate map based on producer zip and selected states ###
+### Function to generate map based on producer zip and selected states ----
 MapPlot <- function (input) {
   
 # Avoid red error message when nothing is selected for input$state by validating
@@ -240,7 +288,7 @@ MapPlot <- function (input) {
    
 }
 
-### Function to make box plots of question means and errors
+### Function to make box plots of question means and errors ----
 BoxPlot <- function (data, input, question, title, xlab, ylab) {
 
   # Avoid red error message when nothing is selected for input$state by validating
@@ -290,7 +338,7 @@ plot(p)
 
 }
       
-### Function to make box plot for responses that can be split into bins
+### Function to make box plot for responses that can be split into bins ----
 BinPlot <- function (data, input, question, title, xlab, ylab) {
   
 # Avoid red error message when nothing is selected for input$state by validating
@@ -318,7 +366,7 @@ BinPlot <- function (data, input, question, title, xlab, ylab) {
   ggplot(data = out, aes_string(x = question, y = "summary")) +
     geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
-    ylim(0,100) +
+#    ylim(0,100) +
     theme_linedraw(base_size = 30) +
     theme(legend.position="none") +
     labs(title = title,
@@ -402,15 +450,21 @@ This interactive report presents, in graphical form, the results of the latest o
 This survey was conducted in conjunction with the Organic Farming Research Foundation with funding by the USDA Organic Research and Education Initiative.
 
 # Filter
-<style>
-.Filter { background-color: #f2f2f2;}
-</style>
+
+:::: {.box}
+By default, responses from all states are shown. To select a specific state or states, delete the "All" and select or enter the two-letter abreviations of the states you want to view data for.
 
 ```{r, Filter, echo=FALSE}
 selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 ```
+::::
+<br>
+<br>
+<br>
 
-# Map of Respondents
+# Farm Demographics
+
+## Farm Locations
 
 ```{r, Map, echo=FALSE}
     renderPlot({
@@ -421,20 +475,89 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
-# Total Organic Acreage
+## Year Certified
 
-```{r, Veg, echo=FALSE}
+```{r, Years, echo=FALSE}
     renderPlot({
     
-       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Acreage", xlab = paste(paste(input$state,collapse = " "),"Organic Acreage"), ylab = "Proportion of Responses")
+       BinPlot (data = data, input = input, question = "Q01A_bin", title = "Years Certified", xlab = paste(paste(input$state,collapse = " "),"Years Certified"), ylab = "Percentage")
       
     })
 
 ```
 
-# Organic Vegetable Seed Use
+## Vegetable Producer
 
-```{r, Acres, echo=FALSE}
+```{r, VegProducer, echo=FALSE}
+    renderPlot({
+    
+       BoxPlot (data = data, input = input, question = "Q05", title = "Percentage of Respondents who Produce Vegetables", xlab = "", ylab = "Percentage")
+      
+    })
+
+```
+
+## Vegetable Acreage
+
+```{r, VegAcre, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Vegetable Acreage", xlab = paste(paste(input$state,collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
+      
+    })
+
+```
+
+## Cover Crop Producer
+
+```{r, CoverProducer, echo=FALSE}
+    renderPlot({
+    
+       BoxPlot (data = data, input = input, question = "Q05", title = "Percentage of Respondents who Produce \nCover Crops or Green Pasture", xlab = "", ylab = "Percentage")
+      
+    })
+
+```
+
+## Cover Crop Acreage
+
+```{r, CoverAcre, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q05_2_o_bin", title = "Cover Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Cover Crop Acreage"), ylab = "Percentage")
+      
+    })
+
+```
+
+
+## Field Crop Producer
+
+```{r, FieldProducer, echo=FALSE}
+    renderPlot({
+    
+       BoxPlot (data = data, input = input, question = "Q05", title = "Percentage of Respondents who Produce Field Crops", xlab = "", ylab = "Percentage")
+      
+    })
+
+```
+
+## Field Crop Acreage
+
+```{r, FieldAcre, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q07_2_o_bin", title = "Field Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Field Crop Acreage"), ylab = "Percentage")
+      
+    })
+
+```
+
+# Organic Seed Usage
+
+## Vegetable Seed Use
+
+```{r, VegOGSeed, echo=FALSE}
     renderPlot({
     
       BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
@@ -443,9 +566,9 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
-# Organic Cover Crop Seed Use
+## Cover Crop Seed Use
 
-```{r, Cover, echo=FALSE}
+```{r, CoverOGSeed, echo=FALSE}
     renderPlot({
     
      BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
@@ -453,9 +576,9 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 })
 ```
 
-# Organic Field Crop Seed Use
+## Field Crop Seed Use
 
-```{r, Field, echo=FALSE}
+```{r, FieldOGSeed, echo=FALSE}
     renderPlot({
     
      BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
