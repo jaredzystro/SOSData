@@ -267,7 +267,7 @@ MapPlot <- function (input) {
     full_name <- state.name[match(input$state,state.abb)]
     print(full_name)
     filtered_states <- us_states[us_states$NAME %in% full_name,]
-    filtered_zips <- zips[zips$state==input$state,]
+    filtered_zips <- zips[zips$state %in% input$state,]
     
   }
   
