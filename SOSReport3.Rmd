@@ -517,6 +517,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 # Farm Demographics
 
+$~$
+
 ## Farm Locations
 
 ```{r, Map, echo=FALSE}
@@ -527,6 +529,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+
+$~$
 
 ## Year Certified
 
@@ -539,6 +543,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Vegetable Producer
 
 ```{r, VegProducer, echo=FALSE}
@@ -549,6 +555,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+
+$~$
 
 ## Vegetable Acreage
 
@@ -561,6 +569,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Cover Crop Producer
 
 ```{r, CoverProducer, echo=FALSE}
@@ -571,6 +581,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+
+$~$
 
 ## Cover Crop Acreage
 
@@ -583,6 +595,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
 
 ## Field Crop Producer
 
@@ -595,6 +608,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Field Crop Acreage
 
 ```{r, FieldAcre, echo=FALSE}
@@ -606,7 +621,11 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 # Organic Seed Usage
+
+$~$
 
 ## Vegetable Seed Use
 
@@ -619,6 +638,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Cover Crop Seed Use
 
 ```{r, CoverOGSeed, echo=FALSE}
@@ -628,6 +649,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
       
 }, height = PLOTHEIGHT)
 ```
+
+$~$
 
 ## Field Crop Seed Use
 
@@ -639,6 +662,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 }, height = PLOTHEIGHT)
 ```
 
+$~$
+
 # Organic Seed Production
 
 ```{r, SeedProduction, echo=FALSE}
@@ -649,7 +674,11 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 }, height = PLOTHEIGHT)
 ```
 
+$~$
+
 # Factors in Not Purchasing Organic Seed
+
+$~$
 
 ## Lack of Seed Treatments
 
@@ -662,6 +691,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Buyer Requires Variety Not Available As Organic
 
 ```{r, NoOGSeedProcessor, echo=FALSE}
@@ -672,6 +703,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+
+$~$
 
 ## Insufficient Quantity of Seed
 
@@ -684,6 +717,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Save Own Seed
 
 ```{r, NoOGSeedSave, echo=FALSE}
@@ -695,7 +730,9 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
-##Distrust of organic seed quality
+$~$
+
+## Distrust of organic seed quality
 
 ```{r, NoOGSeedQual, echo=FALSE}
     renderPlot({
@@ -705,6 +742,7 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+$~$
 
 ## Price
 
@@ -717,6 +755,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
 
 ```
 
+$~$
+
 ## Variety not available as organic seed
 
 ```{r, NoOGSeedVar, echo=FALSE}
@@ -727,6 +767,8 @@ selectInput("state", "State:", choices=c("All",sort(unique(data$state))), select
     }, height = PLOTHEIGHT)
 
 ```
+
+$~$
 
 ## Lack of desirable genetic traits
 
