@@ -373,26 +373,29 @@ BoxPlot <- function (data, input, question, title, xlab, ylab) {
       "CI" = as.data.frame(survey_mean)[[question]]*1.96,
       "n" = n
     )
+  survey_summary$summary_labels <- paste("n = ",survey_summary$n,sep="")
 
 # ggplot plots mean (goem_bar) and error (geom_errorbar)
 # Mean and n are added onto bar via the two geom_text calls
 # Adds labels for the title, x, and y axis based on inputted variables title, xlab, and ylab
 # Currently the y axis is fixed at 1-100, should make that dynamic
 
-##Temp add p to see in RStudio
-p<-ggplot(survey_summary, aes(x=question, y=mean)) +
+p <- ggplot(survey_summary, aes(x=question, y=mean)) +
   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
   geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), inherit.aes = FALSE, size=.75, width=.1) +
   ylim(0,100) +
   geom_text(aes(label=round(mean,1), vjust=2), color="black", size=10) +
-  geom_text(aes(label=paste0("n = ",n), vjust=4), color="black", size=10) +
   theme_linedraw(base_size = 30) +
   theme(legend.position="none") +
   labs(title = title,
         x = xlab, y = ylab) +
     theme(plot.title = element_text(hjust = 0.5),
           axis.text.x = element_blank())
-#Temp add p
+
+ if (input$show_n) {
+    p <- p + geom_text(aes(label=summary_labels, vjust=4), color="black", size=10)
+  }
+
 plot(p)
 
 }
@@ -420,18 +423,26 @@ BinPlot <- function (data, input, question, title, xlab, ylab) {
     group_by_at(question) %>%
     summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
     mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-
+  out$summary_labels <- paste("n = ",out$n,sep="")
+  
 # ggplot of means (geom_bar) and error (geom_errorbar) for bins
-  ggplot(data = out, aes_string(x = question, y = "summary")) +
+  p <- ggplot(data = out, aes_string(x = question, y = "summary")) +
     geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp"), inherit.aes = FALSE, size=.75, width=.1) +
 #    ylim(0,100) +
     theme_linedraw(base_size = 30) +
     theme(legend.position="none") +
     labs(title = title,
-         x = xlab, y = ylab) +
-      theme(plot.title = element_text(hjust = 0.5)) +
-      theme(axis.text.x=element_text(angle=45,hjust=1))
+         x = xlab, y = ylab)  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(axis.text.x=element_text(angle=45,hjust=1))
+  
+  if (input$show_n) {
+    p <- p + geom_text(aes(label=summary_labels, vjust=1), color="black", size=10)
+  }
+  
+  plot(p)
+  
 }
     
 
@@ -517,9 +528,21 @@ By default, responses from all states are shown. To select a specific state or s
 selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 ```
 ::::
-<br>
-<br>
-<br>
+
+$~$
+
+# Appearance
+
+:::: {.box}
+Adjust the appearance of the graphs here
+
+```{r, ShowN, echo=FALSE}
+checkboxInput("show_n", "Display response numbers", TRUE)
+```
+::::
+
+$~$
+
 
 # Farm Demographics
 
@@ -638,7 +661,7 @@ $~$
 ```{r, VegOGSeed, echo=FALSE}
     renderPlot({
     
-      BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
+      BoxPlot (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -651,7 +674,7 @@ $~$
 ```{r, CoverOGSeed, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 ```
@@ -663,7 +686,7 @@ $~$
 ```{r, FieldOGSeed, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 ```
@@ -679,7 +702,7 @@ $~$
 ```{r, SeedProduction, echo=FALSE}
     renderPlot({
     
-     BoxPlot (data = data, input = input, question = "Q26B_yes", title = "Percentage of Producers Growing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
+     BoxPlot (data = data, input = input, question = "Q26B_yes", title = "Percentage of Producers \nGrowing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 ```
