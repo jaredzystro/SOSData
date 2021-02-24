@@ -149,6 +149,12 @@ data$Q07aA <- as.numeric(data$Q07aA)
 data$Q26B_yes <- as.numeric(data$Q26B)
 data$Q26B_yes <- ifelse(!is.na(data$Q26B_yes) & data$Q26B_yes>0, 100, 0)
 
+# Q34 is Are you interested in producing organic seed for commercial use at some point in the future?
+# Change non-responses to NA
+# Order factors
+data$Q34 <- ifelse (data$Q34 == "No answer" | data$Q34 == "partial complete" | data$Q34 == "skipped due to branching", NA, data$Q34)
+data$Q34 <- factor(data$Q34, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
+
 ### Q29A - Q29H are factors in producers' decision NOT to purchase organic seed
 # Change non-responses to NA
 # Order factors
@@ -666,12 +672,29 @@ $~$
 
 # Organic Seed Production
 
+$~$
+
+## Producers Currently Saving Own Seed
+
 ```{r, SeedProduction, echo=FALSE}
     renderPlot({
     
      BoxPlot (data = data, input = input, question = "Q26B_yes", title = "Percentage of Producers Growing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
+```
+
+$~$
+
+## Interest in Growing Organic Seed
+
+```{r, SeedInterest, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (data = data, input = input, question = "Q34", title = "Are you interested in producing organic seed for \ncommercial use at some point in the future?", xlab = paste(paste(input$state,collapse = " "),"Interest Level"), ylab = "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
 ```
 
 $~$
