@@ -414,9 +414,11 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
       "question" = integer(),
       "mean" = integer(),
       "CI" = integer(),
-      "n" = integer(),
-      "color" = character()
+      "n" = integer()
     )
+  
+  # Empty color pallet
+  graph_color <- character()
   
   # code for 2020 data
   if (!is.null(data[[question]]) & input$Y2020) {
@@ -443,13 +445,15 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
       "question" = question,
       "mean" = as.data.frame(survey_mean2020)$mean,
       "CI" = as.data.frame(survey_mean2020)[[question]]*1.96,
-      "n" = n2020,
-      "color" = "#2d677f"
+      "n" = n2020
     )
   survey_summary2020$summary_labels <- paste("n = ",survey_summary2020$n,sep="")
   
 # Add to overall summary dataframe
   survey_summary <- merge(survey_summary,survey_summary2020, all=TRUE)
+  
+  # Add color to graph_color
+  graph_color <- c(graph_color,"#2d677f")
   
   }
 
@@ -478,14 +482,15 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
       "question" = question,
       "mean" = as.data.frame(survey_mean2015)$mean,
       "CI" = as.data.frame(survey_mean2015)[[question]]*1.96,
-      "n" = n2015,
-      "color" = "#da413d"
+      "n" = n2015
     )
     survey_summary2015$summary_labels <- paste("n = ",survey_summary2015$n,sep="")
      
     # Add to overall summary dataframe
-    
       survey_summary <- merge(survey_summary,survey_summary2015, all=TRUE)
+      
+    # Add color to graph_color
+      graph_color <- c(graph_color, "#da413d")
   }
   
 # ggplot plots mean (goem_bar) and error (geom_errorbar)
@@ -505,7 +510,7 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
 p <- ggplot(survey_summary, aes(x=question, fill = year, y=mean)) +
   geom_bar(stat = "identity", color = "black", width = 0.3, position = position_dodge(width=0.9)) +
   geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), position = position_dodge(width=0.9),  size=.75, width=.1) +
-  scale_fill_manual(values = survey_summary$color) +
+  scale_fill_manual(values = graph_color) +
   ylim(0,100) +
   geom_text(aes(label=round(mean,1), vjust=2), color="black", size=10, position = position_dodge(width = 0.9)) +
   theme_linedraw(base_size = 30) +
@@ -556,6 +561,9 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     "year" = character()
   )
   
+# Empty color pallet
+  graph_color <- character()
+  
   # code for 2020 data
   if (!is.null(data[[question]]) & input$Y2020) {
   
@@ -577,10 +585,12 @@ BinPlot <- function (input, question, title, xlab, ylab) {
       mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
     out2020$summary_labels <- paste("n = ",out2020$n,sep="")
     out2020$year <- "2020"
-    out2020$color <- "#2d677f"
     
     # merge with overall summary
     out <- merge(out,out2020, all=TRUE)
+    
+    # Add color to graph_color
+    graph_color <- c(graph_color,"#2d677f")
     
   }
   
@@ -610,6 +620,9 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     # merge with overall summary
     out <- merge(out,out2015, all=TRUE)
     
+    # Add color to graph_color
+    graph_color <- c(graph_color,"#da413d")
+    
   }
   
 # ggplot of means (geom_bar) and error (geom_errorbar) for bins
@@ -622,7 +635,7 @@ BinPlot <- function (input, question, title, xlab, ylab) {
          x = xlab, y = ylab)  +
     theme(plot.title = element_text(hjust = 0.5)) +
     theme(axis.text.x=element_text(angle=45,hjust=1)) +
-    scale_fill_manual(values = out$color)
+    scale_fill_manual(values = graph_color)
   
   # Remove legend if only one year
   if (length(levels(as.factor(out$year))) == 1) {
