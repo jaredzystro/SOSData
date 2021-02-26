@@ -63,6 +63,8 @@ library(dplyr)
 library(srvyr)
 library(sf)
 library(spData)
+library(stringr)
+library(maps)
 
 zipcode <- read.csv("zipcode.csv", as.is = TRUE)
 data <- read.csv("NORA19_merged.csv")
@@ -213,12 +215,21 @@ mydesign2015 <-
   )
 
 # Get sp type shape data for states
+# Add column of abbreviations
+data("us_states")
+us_states$state <- state.abb[match(us_states$NAME,state.name)]
+
 # Dropping HI for now because it is so far from everything
 # Will need a way to incorperate eventually
-data("us_states")
 rownames(zipcode) <- zipcode$zip
 zips<-zipcode[data$Q04A, 1:6]
 zips<-zips[zips$state!="HI",]
+
+# Get state data for gradient maps and convert to upper case
+# Add column of abbreviations
+states_map <- map_data("state")
+states_map$region <- str_to_title(states_map$region)
+states_map$state <- state.abb[match(states_map$region,state.name)]
 
 ### Scratch code -- mapping code experiments
 # states <- ne_states(country = "united states of america", returnclass = "sf")
@@ -322,9 +333,8 @@ MapPlot <- function (input) {
 # Filter zip code points and state shapes based on input$state
   } else {
     
-    full_name <- state.name[match(input$state,state.abb)]
-    print(full_name)
-    filtered_states <- us_states[us_states$NAME %in% full_name,]
+ #   full_name <- state.name[match(input$state,state.abb)]
+    filtered_states <- us_states[us_states$state %in% input$state,]
     filtered_zips <- zips[zips$state %in% input$state,]
     
   }
@@ -380,6 +390,15 @@ BoxPlot <- function (data, input, question, title, xlab, ylab) {
 # Adds labels for the title, x, and y axis based on inputted variables title, xlab, and ylab
 # Currently the y axis is fixed at 1-100, should make that dynamic
 
+  
+## Scratch code to automatically wrap titles  
+# font_size <- 10
+# wrap_width <- ???plotsize?? / (font_size*ggplot2:::.pt)
+  
+# ggplot(df2, aes_string("V1")) +
+# geom_bar() +
+# scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10))
+  
 p <- ggplot(survey_summary, aes(x=question, y=mean)) +
   geom_bar(stat = "identity", fill="skyblue3", color = "black", width = 0.3) +
   geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), inherit.aes = FALSE, size=.75, width=.1) +
@@ -444,7 +463,63 @@ BinPlot <- function (data, input, question, title, xlab, ylab) {
   plot(p)
   
 }
+
+## Scratch code for gradient maps
+GradientMap <- function (data, input, question, title, catlab) {
+
+# dummy data for testing
+#  input$state <- c("AZ","CA","WA","OR","NV")
+#  input$state <- c("All")
+#  question <- "Q05aA"
+#  catlab <- "Percent Vegetable Seed Used"
+  
+  validate(need(input$state, 'Please choose a state.'))
+  
+  data <- data[!is.na(data[question]),]
+  
+  if (input$state=="All") {
     
+    filtered_state_map <- states_map
+    filtered_state_names <- state.name
+    filtered_data <- data[,c(question,"state")]
+    
+# Filter zip code points and state shapes based on input$state
+  } else {
+    
+    filtered_state_map <- states_map[states_map$state %in% input$state,]
+    filtered_data <- data[,c(question,"state")]
+    filtered_data <- filtered_data[filtered_data$state %in% input$state,]
+
+  }
+
+# Retrieve the states map data and merge with pounds data
+
+data_sum <- filtered_data %>%
+  group_by(state) %>%
+    summarise(mean = mean(.data[[question]]))
+
+seed_map <- left_join(filtered_state_map, data_sum, by = "state")
+
+# Create the map
+ggplot(seed_map, aes(long, lat, group = group))+
+  geom_polygon(aes(fill = mean), color = "grey50")+
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey50", name = catlab) +
+  coord_sf(crs = st_crs(seed_map), datum = NA) +
+  theme_linedraw(base_size = 30) +
+  theme(
+        panel.grid = element_blank(),
+        line = element_blank(),
+        rect = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        plot.background = element_rect(fill = "white")) +
+  labs(title = title)
+
+}
+
 
 ## Scratch code for experimenting with survey summarizing, bin and box plots
 
@@ -665,6 +740,12 @@ $~$
       
     }, height = PLOTHEIGHT)
 
+renderPlot({
+    
+      GradientMap (data = data, input = input, question = "Q05aA", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
 ```
 
 $~$
@@ -677,6 +758,13 @@ $~$
      BoxPlot (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
+
+renderPlot({
+    
+      GradientMap (data = data, input = input, question = "Q06aA", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
 ```
 
 $~$
@@ -689,6 +777,13 @@ $~$
      BoxPlot (data = data, input = input, question = "Q07aA", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
+
+renderPlot({
+    
+      GradientMap (data = data, input = input, question = "Q06aA", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
 ```
 
 $~$
@@ -705,6 +800,13 @@ $~$
      BoxPlot (data = data, input = input, question = "Q26B_yes", title = "Percentage of Producers \nGrowing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
+
+renderPlot({
+    
+      GradientMap (data = data, input = input, question = "Q26B_yes", title = "Percentage of Producers \nGrowing Their Own Seed", catlab =  "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
 ```
 
 $~$
