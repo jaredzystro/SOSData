@@ -234,6 +234,41 @@ data2015$FieldAcreage <- factor(data2015$FieldAcreage)
 data2010$FieldAcreage <- cut(data2010$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data2010$FieldAcreage <- factor(data2010$FieldAcreage)
 
+### Q08 is whether they had any forage crop acres ----
+# Change non-responses to NA
+data$GrowForage <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q08)
+# Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
+data$GrowForage <- ifelse (data$GrowForage == "Some annual forage crop acres" | data$GrowForage == "Some annual forage crop acres:", 100, 0) %>% as.numeric()
+
+# Do the same for 2015 forage growing question
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data2015$GrowForage <- ifelse (data2015$GrowForage == "Yes.", 100, 0) %>%
+              as.numeric()
+
+# Do the same for 2010 forage growing question
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data2010$GrowForage <- ifelse (data2010$GrowForage == "Yes.", 100, 0) %>%
+              as.numeric()
+
+### Q08_2_o is forage crop acreage ----
+# These lines split it into bins for plotting
+# Remove missing data keys
+data$ForageAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
+data$ForageAcreage <- as.numeric(data$ForageAcreage)
+# Convert to bins
+data$ForageAcreage <- cut(data$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$ForageAcreage <- factor(data$ForageAcreage)
+
+# Do the same for the 2015 ForageAcreage
+# Convert to bins
+data2015$ForageAcreage <- cut(data2015$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2015$ForageAcreage <- factor(data2015$ForageAcreage)
+
+# Do the same for the 2010 ForageAcreage
+# Convert to bins
+data2010$ForageAcreage <- cut(data2010$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2010$ForageAcreage <- factor(data2010$ForageAcreage)
+
 ### Additional variables used for filtering specifying what crop types they grow ----
 data$HasVeg <- ifelse(data$GrowVegis == 100, TRUE, FALSE)
 data$OnlyVeg <- ifelse(data$GrowVegis == 100 & data$GrowField == 0, TRUE, FALSE)
@@ -270,6 +305,11 @@ data2015$OGCoverSeed <- as.numeric(data2015$OGCoverSeed)
 data$OGFieldSeed <- as.numeric(data$Q07aA)
 data2015$OGFieldSeed <- as.numeric(data2015$OGFieldSeed)
 data2010$OGFieldSeed <- as.numeric(data2010$OGFieldSeed)
+
+### Q08aA  Percent organic forage crop seed ----
+data$OGForageSeed <- as.numeric(data$Q08aA)
+data2015$OGForageSeed <- as.numeric(data2015$OGForageSeed)
+data2010$OGForageSeed <- as.numeric(data2010$OGForageSeed)
 
 ### Q26B is what percentage of seed they got from seed they saved ----
 # Making a column to turn this into yes/no with 100 = yes, 0 = no
@@ -592,6 +632,7 @@ MapPlot <- function (input) {
   # TODO: need to add filtering function based on crop type
   # Probably need to join lat, long data with full data_frame rather
   # than having a seperate zip data_frame like it is now
+  # Also need to add forage crop options
   
   # radioButtons("crop_type", "Crop Types Grown:",
   #              c("All" = "all",
@@ -1326,6 +1367,32 @@ $~$
 
 $~$
 
+## Forage Crop Producer
+
+```{r, ForageProducer, echo=FALSE}
+    renderPlot({
+    
+       BoxPlot (input = input, question = "GrowForage", title = "Percentage of Respondents who Produce Forage Crops", xlab = "", ylab = "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
+```
+
+$~$
+
+## Forage Crop Acreage
+
+```{r, ForageAcre, echo=FALSE}
+    renderPlot({
+    
+       BinPlot (input = input, question = "ForageAcreage", title = "Forage Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Forage Crop Acreage"), ylab = "Percentage")
+      
+    }, height = PLOTHEIGHT)
+
+```
+
+$~$
+
 # Organic Seed Usage
 
 $~$
@@ -1430,6 +1497,37 @@ renderPlot({
 renderPlot({
       if (input$Y2010) {
         GradientMap (input = input, question = "OGFieldSeed", title = "2010 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2010")
+      }
+    })
+
+```
+
+$~$
+
+## Forage Crop Seed Use
+
+```{r, ForageOGSeed, echo=FALSE}
+    renderPlot({
+    
+     BoxPlot (input = input, question = "OGForageSeed", title = "Percent Forage Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Forage Crop Acreage"), ylab = "Percentage")
+      
+}, height = PLOTHEIGHT)
+
+    renderPlot({
+      if (input$Y2020) {
+        GradientMap (input = input, question = "OGForageSeed", title = "2020 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2020")
+      }
+    })
+
+renderPlot({
+      if (input$Y2015) {
+        GradientMap (input = input, question = "OGForageSeed", title = "2015 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2015")
+      }
+    })
+
+renderPlot({
+      if (input$Y2010) {
+        GradientMap (input = input, question = "OGForageSeed", title = "2010 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2010")
       }
     })
 
