@@ -37,7 +37,7 @@ h2{font-size:16px;}
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 ###############################################################################
 ###############################################################################
-### Initialize packages and read data----
+### Initialize packages, read data, set graphics constants----
 rm(list=ls())
 
 install_or_load_pack <- function(pack){
@@ -51,13 +51,14 @@ install_or_load_pack <- function(pack){
 }
 
 # Comment out package installation prior to deploying
-#packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph")
+#packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph")
 #install_or_load_pack(packages)
 
 library(survey)
 library(ggplot2)
 library(shiny)
 library(dplyr)
+library(plyr)
 library(srvyr)
 library(sf)
 library(spData)
@@ -76,11 +77,20 @@ data2010 <- read.csv("2010SurveyData.csv", skip=2, header=TRUE)
 # Temporary fix until I can get a better dynamic plot sizing plan in place
 PLOTHEIGHT <- 600
 
+# Constant to set plot title wrapping
+WRAPWIDTH <- 30
+
+# Constant to set plot text size
+BASESIZE <- 22
+
+# Constant to set response label size
+LABELSIZE <- 8
+
 ###############################################################################
 ###############################################################################
 ### Section for question data wrangling ----
 
-### Q01A is year farm first certified
+### Q01A is year farm first certified ----
 # These lines tidy it up and split into bins for plotting
 data$YearsCertified <- as.numeric(data$Q01A)
 # Convert to years certified
@@ -101,7 +111,7 @@ data2010$YearsCertified <- as.numeric(data2010$YearsCertified)
 data2010$YearsCertified_bin <- cut(data2010$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
 data2010$YearsCertified_bin <- factor(data2010$YearsCertified_bin)
 
-### Q05 is whether they had any veg acres
+### Q05 is whether they had any veg acres ----
 # Change non-responses to NA
 data$GrowVegis <- ifelse (data$Q05 == "No answer" | data$Q05 == "partial complete" | data$Q05 == "skipped due to branching", NA, data$Q05)
 # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
@@ -118,7 +128,7 @@ data2015$GrowVegis <- ifelse (data2015$GrowVegis == "Yes.", 100, 0) %>%
 data2010$GrowVegis <- ifelse (data2010$GrowVegis == "Yes.", 100, 0) %>%
               as.numeric()
 
-### Q05_2_o is vegetable acreage
+### Q05_2_o is vegetable acreage ----
 # These lines split it into bins for plotting
 # Remove missing data keys
 data$VegiAcreage <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
@@ -137,7 +147,7 @@ data2015$VegiAcreage <- factor(data2015$VegiAcreage)
 data2010$VegiAcreage <- cut(data2010$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data2010$VegiAcreage <- factor(data2010$VegiAcreage)
 
-### Q06 is whether they had any cover crop acres
+### Q06 is whether they had any cover crop acres ----
 # Change non-responses to NA
 data$GrowCover <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
 # Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
@@ -151,7 +161,7 @@ data2015$GrowCover <- ifelse (data2015$GrowCover == "Yes", 100, 0) %>%
 
 # Cover crop not asked for 2010
 
-### Q06_2_o is cover crop acreage
+### Q06_2_o is cover crop acreage ----
 # These lines split it into bins for plotting
 # Remove missing data keys
 data$CoverAcreage <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
@@ -167,7 +177,7 @@ data2015$CoverAcreage <- factor(data2015$CoverAcreage)
 
 # Cover crop not asked for 2010
 
-### Q07 is whether they had any field crop acres
+### Q07 is whether they had any field crop acres ----
 # Change non-responses to NA
 data$GrowField <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
 # Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
@@ -183,7 +193,7 @@ data2015$GrowField <- ifelse (data2015$GrowField == "Yes.", 100, 0) %>%
 data2010$GrowField <- ifelse (data2010$GrowField == "Yes.", 100, 0) %>%
               as.numeric()
 
-### Q07_2_o is field crop acreage
+### Q07_2_o is field crop acreage ----
 # These lines split it into bins for plotting
 # Remove missing data keys
 data$FieldAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
@@ -202,22 +212,22 @@ data2015$FieldAcreage <- factor(data2015$FieldAcreage)
 data2010$FieldAcreage <- cut(data2010$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data2010$FieldAcreage <- factor(data2010$FieldAcreage)
 
-# Percent organic vegetable seed
+### Q05aA Percent organic vegetable seed ----
 data$OGVegiSeed <- as.numeric(data$Q05aA)
 data2015$OGVegiSeed <- as.numeric(data2015$OGVegiSeed)
 data2010$OGVegiSeed <- as.numeric(data2010$OGVegiSeed)
 
-# Percent organic cover seed
+### Q06aA  Percent organic cover seed ----
 data$OGCoverSeed <- as.numeric(data$Q06aA)
 data2015$OGCoverSeed <- as.numeric(data2015$OGCoverSeed)
 # No data for cover
 
-# Percent organic field crop seed
+### Q07aA  Percent organic field crop seed ----
 data$OGFieldSeed <- as.numeric(data$Q07aA)
 data2015$OGFieldSeed <- as.numeric(data2015$OGFieldSeed)
 data2010$OGFieldSeed <- as.numeric(data2010$OGFieldSeed)
 
-# Q26B is what percentage of seed they got from seed they saved
+### Q26B is what percentage of seed they got from seed they saved ----
 # Making a column to turn this into yes/no with 100 = yes, 0 = no
 data$SeedSourceOwn0or100 <- as.numeric(data$Q26B)
 data$SeedSourceOwn0or100 <- ifelse(!is.na(data$SeedSourceOwn) & data$SeedSourceOwn>0, 100, 0)
@@ -226,38 +236,128 @@ data2015$SeedSourceOwn0or100 <- ifelse(!is.na(data2015$SeedSourceOwn) & data2015
 
 data2010$SeedSourceOwn0or100 <- ifelse(!is.na(data2010$SeedSourceOwn) & data2010$SeedSourceOwn>0, 100, 0)
 
-# Q34 is Are you interested in producing organic seed for commercial use at some point in the future?
+### Q34 is Are you interested in producing organic seed for commercial use at some point in the future? ----
 # Change non-responses to NA
 # Order factors
-data$Q34 <- ifelse (data$Q34 == "No answer" | data$Q34 == "partial complete" | data$Q34 == "skipped due to branching", NA, data$Q34)
-data$Q34 <- factor(data$Q34, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
+data$SeedInterest <- ifelse (data$Q34 == "No answer" | data$Q34 == "partial complete" | data$Q34 == "skipped due to branching", NA, data$Q34)
+data$SeedInterest <- factor(data$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
 
-### Q29A - Q29H are factors in producers' decision NOT to purchase organic seed
+# 2015 Seed Interest
+data2015$SeedInterest <- factor(data2015$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
+
+# 2010 Seed Interest question was asked differently, can't be included
+data2010 <- subset(data2010, select=-c(SeedInterest))
+
+### Q29A - Q29H are factors in producers' decision NOT to purchase organic seed ----
+# Drop 2010 data because the responses were framed differently
+data2010 <- subset(data2010, select=-c(NoOGSeedTreat ,NoOGSeedProcessor, NoOGSeedQuant, NoOGSeedSave, NoOGSeedQual, NoOGSeedPrice, NoOGSeedVar, NoOGSeedTrait))
+
+### 29A Lack of seed treatments, such as pelleting or priming ----
 # Change non-responses to NA
+data$NoOGSeedTreat <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
 # Order factors
-CleanUpSeedFactorQs <- function (question) {
-  question <- ifelse (question == "No answer" | question == "partial complete" | question == "skipped due to branching", NA, question)
-  question <- factor(question, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-  return (question)
-}
-# 29A Lack of seed treatments, such as pelleting or priming
-data$Q29A <- CleanUpSeedFactorQs(data$Q29A)
-# 29B Processor (buyer) requires or supplies varieties that are not available organically
-data$Q29B <- CleanUpSeedFactorQs(data$Q29B)
-# 29C Insufficient quantity of seed
-data$Q29C <- CleanUpSeedFactorQs(data$Q29C)
-# 29D Save my own seed
-data$Q29D <- CleanUpSeedFactorQs(data$Q29D)
-# 29E Distrust of organic seed quality
-data$Q29E <- CleanUpSeedFactorQs(data$Q29E)
-# 29F Price
-data$Q29F <- CleanUpSeedFactorQs(data$Q29F)
-# 29G Specific variety not available as organic seed
-data$Q29G <- CleanUpSeedFactorQs(data$Q29G)
-# 29H Lack of desirable genetic traits
-data$Q29H <- CleanUpSeedFactorQs(data$Q29H)
+data$NoOGSeedTreat <- factor(data$NoOGSeedTreat, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 
-#Convert Respondent ID to factor
+# 2015 data
+# Order factors
+data2015$NoOGSeedTreat <- factor(data2015$NoOGSeedTreat, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedTreat <- revalue(data2015$NoOGSeedTreat, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29B Processor (buyer) requires or supplies varieties that are not available organically ----
+# Change non-responses to NA
+data$NoOGSeedProcessor <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedProcessor <- factor(data$NoOGSeedProcessor, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedProcessor <- factor(data2015$NoOGSeedProcessor, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedProcessor <- revalue(data2015$NoOGSeedProcessor, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29C Insufficient quantity of seed ----
+# Change non-responses to NA
+data$NoOGSeedQuant <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedQuant <- factor(data$NoOGSeedQuant, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedQuant <- factor(data2015$NoOGSeedQuant, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedQuant <- revalue(data2015$NoOGSeedQuant, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29D Save my own seed ----
+# Change non-responses to NA
+data$NoOGSeedSave <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedSave <- factor(data$NoOGSeedSave, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedSave <- factor(data2015$NoOGSeedSave, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedSave <- revalue(data2015$NoOGSeedSave, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29E Distrust of organic seed quality ----
+# Change non-responses to NA
+data$NoOGSeedQual <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedQual <- factor(data$NoOGSeedQual, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedQual <- factor(data2015$NoOGSeedQual, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedQual <- revalue(data2015$NoOGSeedQual, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29F Price ----
+# Change non-responses to NA
+data$NoOGSeedPrice <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedPrice <- factor(data$NoOGSeedPrice, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedPrice <- factor(data2015$NoOGSeedPrice, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedPrice <- revalue(data2015$NoOGSeedPrice, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29G Specific variety not available as organic seed ----
+# Change non-responses to NA
+data$NoOGSeedVar <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedVar <- factor(data$NoOGSeedVar, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedVar <- factor(data2015$NoOGSeedVar, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedVar <- revalue(data2015$NoOGSeedVar, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+### 29H Lack of desirable genetic traits ----
+# Change non-responses to NA
+data$NoOGSeedTrait <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# Order factors
+data$NoOGSeedTrait <- factor(data$NoOGSeedTrait, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+
+# 2015 data
+# Order factors
+data2015$NoOGSeedTrait <- factor(data2015$NoOGSeedTrait, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+
+# Rename to match 2020 data
+data2015$NoOGSeedTrait <- revalue(data2015$NoOGSeedTrait, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+
+
+### Convert Respondent ID to factor ----
 data$RespID <- factor(data$RespID)
 
 ###############################################################################
@@ -634,8 +734,8 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
     scale_fill_manual(values = graph_color) +
     ylim(0,100) +
     geom_text(aes(label=round(mean,1), vjust=2), color="black", size=10, position = position_dodge(width = 0.9)) +
-    theme_linedraw(base_size = 30) +
-    labs(title = title,
+    theme_linedraw(base_size = BASESIZE) +
+    labs(title = stringr::str_wrap(title, width = WRAPWIDTH),
         x = xlab, y = ylab) +
     theme(plot.title = element_text(hjust = 0.5),
           axis.text.x = element_blank())
@@ -647,7 +747,7 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
 
   # Add n if checked
   if (input$show_n) {
-    p <- p + geom_text(aes(label=summary_labels, vjust=4), color="black", size=10, position = position_dodge(width = 0.9))
+    p <- p + geom_text(aes(label=summary_labels, vjust=4), color="black", size=LABELSIZE, position = position_dodge(width = 0.9))
   }
 
   plot(p)
@@ -783,11 +883,11 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     geom_bar(stat = "identity", color = "black", width = 0.3, position = position_dodge(width=0.9)) +
     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp",  fill = "year"), inherit.aes = FALSE, size=.75, width=.1, position = position_dodge(width=0.9)) +
 #    ylim(0,100) +
-    theme_linedraw(base_size = 30) +
-    labs(title = title,
+    theme_linedraw(base_size = BASESIZE) +
+    labs(title = stringr::str_wrap(title, width = WRAPWIDTH),
          x = xlab, y = ylab)  +
     theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(angle=45,hjust=1)) +
+    theme(axis.text.x = element_text(angle=45, hjust = 1)) +
     scale_fill_manual(values = graph_color)
   
   # Remove legend if only one year
@@ -796,14 +896,14 @@ BinPlot <- function (input, question, title, xlab, ylab) {
   }
   
   if (input$show_n) {
-    p <- p + geom_text(aes(label=summary_labels, vjust=1), color="black", size=10, position = position_dodge(width=0.9))
+    p <- p + geom_text(aes(label=summary_labels, vjust=1), color="black", size=LABELSIZE, position = position_dodge(width=0.9))
   }
   
   plot(p)
   
 }
 
-## Scratch code for gradient maps
+### Function to make gradient maps  ----
 GradientMap <- function (input, question, title, catlab, year) {
 
   # dummy data for testing
@@ -857,7 +957,7 @@ GradientMap <- function (input, question, title, catlab, year) {
   p <- ggplot(seed_map, aes(long, lat, group = group)) +
   geom_polygon(aes(fill = mean), color = "grey50") +
   coord_sf(crs = st_crs(seed_map), datum = NA) +
-  theme_linedraw(base_size = 30) +
+  theme_linedraw(base_size = BASESIZE) +
   theme(
         panel.grid = element_blank(),
         line = element_blank(),
@@ -869,7 +969,7 @@ GradientMap <- function (input, question, title, catlab, year) {
         plot.title = element_text(hjust = 0.5),
         legend.text =  element_text(size = rel(0.5)),
         plot.background = element_rect(fill = "white")) +
-  labs(title = title)
+  labs(title = stringr::str_wrap(title, width = WRAPWIDTH))
   
   if (year == "2010") {
   
@@ -1078,7 +1178,7 @@ $~$
 ```{r, CoverProducer, echo=FALSE}
     renderPlot({
     
-       BoxPlot (input = input, question = "GrowCover", title = "Percentage of Respondents who Produce \nCover Crops or Green Pasture", xlab = "", ylab = "Percentage")
+       BoxPlot (input = input, question = "GrowCover", title = "Percentage of Respondents who Produce Cover Crops or Green Pasture", xlab = "", ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1134,7 +1234,7 @@ $~$
 ```{r, VegOGSeed, echo=FALSE}
     renderPlot({
     
-      BoxPlot (input = input, question = "OGVegiSeed", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
+      BoxPlot (input = input, question = "OGVegiSeed", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1163,19 +1263,19 @@ $~$
 
 renderPlot({
      if (input$Y2020) {
-      GradientMap (input = input, question = "OGVegiSeed", title = "2020 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+      GradientMap (input = input, question = "OGVegiSeed", title = "2020 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2020")
      }
 })
 
 renderPlot({
        if (input$Y2015) {
-      GradientMap (input = input, question = "OGVegiSeed", title = "2015 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+      GradientMap (input = input, question = "OGVegiSeed", title = "2015 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2015")
      }
 })
 
 renderPlot({
        if (input$Y2010) {
-      GradientMap (input = input, question = "OGVegiSeed", title = "2010 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2010")
+      GradientMap (input = input, question = "OGVegiSeed", title = "2010 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2010")
      }
 })
 ```
@@ -1186,18 +1286,18 @@ $~$
 
 ```{r, CoverOGSeed, echo=FALSE}
     renderPlot({
-     BoxPlot (input = input, question = "OGCoverSeed", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
+     BoxPlot (input = input, question = "OGCoverSeed", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
 }, height = PLOTHEIGHT)
 
     renderPlot({
       if (input$Y2020) {
-      GradientMap (input = input, question = "OGCoverSeed", title = "2020 Percent Cover Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+      GradientMap (input = input, question = "OGCoverSeed", title = "2020 Percent Cover Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2020")
       }
     })
 
 renderPlot({
       if (input$Y2015) {
-      GradientMap (input = input, question = "OGCoverSeed", title = "2015 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+      GradientMap (input = input, question = "OGCoverSeed", title = "2015 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2015")
       }
     })
 
@@ -1210,25 +1310,25 @@ $~$
 ```{r, FieldOGSeed, echo=FALSE}
     renderPlot({
     
-     BoxPlot (input = input, question = "OGFieldSeed", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
+     BoxPlot (input = input, question = "OGFieldSeed", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 
     renderPlot({
       if (input$Y2020) {
-        GradientMap (input = input, question = "OGFieldSeed", title = "2020 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+        GradientMap (input = input, question = "OGFieldSeed", title = "2020 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2020")
       }
     })
 
 renderPlot({
       if (input$Y2015) {
-        GradientMap (input = input, question = "OGFieldSeed", title = "2015 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+        GradientMap (input = input, question = "OGFieldSeed", title = "2015 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2015")
       }
     })
 
 renderPlot({
       if (input$Y2010) {
-        GradientMap (input = input, question = "OGFieldSeed", title = "2010 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2010")
+        GradientMap (input = input, question = "OGFieldSeed", title = "2010 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2010")
       }
     })
 
@@ -1245,14 +1345,14 @@ $~$
 ```{r, SeedProduction, echo=FALSE}
     renderPlot({
     
-     BoxPlot (input = input, question = "SeedSourceOwn0or100", title = "Percentage of Producers \nGrowing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
+     BoxPlot (input = input, question = "SeedSourceOwn0or100", title = "Percentage of Producers Growing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 
     renderPlot({
       if (input$Y2020) {
         
-        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2020 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2020")
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2020 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2020")
       
       }
     })
@@ -1260,7 +1360,7 @@ $~$
         renderPlot({
       if (input$Y2015) {
         
-        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2015 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2015")
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2015 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2015")
       
       }
     })
@@ -1268,7 +1368,7 @@ $~$
             renderPlot({
       if (input$Y2010) {
         
-        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2010 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2010")
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2010 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2010")
       
       }
     })
@@ -1282,7 +1382,7 @@ $~$
 ```{r, SeedInterest, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q34", title = "Are you interested in producing organic seed for \ncommercial use at some point in the future?", xlab = paste(paste(input$state,collapse = " "),"Interest Level"), ylab = "Percentage")
+       BinPlot (input = input, question = "SeedInterest", title = "Are you interested in producing organic seed for commercial use at some point in the future?", xlab = paste(paste(input$state,collapse = " "),"Interest Level"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1299,7 +1399,7 @@ $~$
 ```{r, NoOGSeedTreat, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29A", title = "How much was lack of seed treatments \n(such as pelleting or priming) a factor in\n your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedTreat", title = "How much was lack of seed treatments (such as pelleting or priming) a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1312,7 +1412,7 @@ $~$
 ```{r, NoOGSeedProcessor, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29B", title = "How much was processor (buyer) requiring \nor supplying varieties that are not available organically a factor in\n your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedProcessor", title = "How much was processor (buyer) requiring or supplying varieties that are not available organically a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1325,7 +1425,7 @@ $~$
 ```{r, NoOGSeedQuant, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29C", title = "How much was an insufficient quantity of seed \na factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedQuant", title = "How much was an insufficient quantity of seed a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1338,7 +1438,7 @@ $~$
 ```{r, NoOGSeedSave, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29D", title = "How much was saving your own seed \na factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedSave", title = "How much was saving your own seed a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1351,11 +1451,12 @@ $~$
 ```{r, NoOGSeedQual, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29E", title = "How much was distrust of organic seed quality \na factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedQual", title = "How much was distrust of organic seed quality a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
 ```
+
 $~$
 
 ## Price
@@ -1363,7 +1464,7 @@ $~$
 ```{r, NoOGSeedPrice, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29F", title = "How much was price a factor in your decision \nNOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedPrice", title = "How much was price a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1376,7 +1477,7 @@ $~$
 ```{r, NoOGSeedVar, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29G", title = "How much was the inavailability of specific \nvarieties in organic seed a factor in your \ndecision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedVar", title = "How much was the inavailability of specific varieties in organic seed a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -1389,7 +1490,7 @@ $~$
 ```{r, NoOGSeedTrait, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q29H", title = "How much was the lack of desirable genetic traits \na factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
+       BinPlot (input = input, question = "NoOGSeedTrait", title = "How much was the lack of desirable genetic traits a factor in your decision NOT to purchase organic seed?", xlab = paste(paste(input$state,collapse = " "),"Factors"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
