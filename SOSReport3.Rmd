@@ -51,7 +51,7 @@ install_or_load_pack <- function(pack){
 }
 
 # Comment out package installation prior to deploying
-#packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph")
+#packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph","shinycssloaders")
 #install_or_load_pack(packages)
 
 library(survey)
@@ -65,7 +65,7 @@ library(spData)
 library(stringr)
 library(maps)
 library(ggiraph)
-
+library(shinycssloaders)
 
 zipcode <- read.csv("zipcode.csv", as.is = TRUE)
 data <- read.csv("NORA19_merged.csv")
@@ -85,6 +85,28 @@ BASESIZE <- 22
 
 # Constant to set response label size
 LABELSIZE <- 8
+
+### Color palettes 
+# dummy variables to test
+# input<- list()
+# input$color_palette <- "default"
+
+COLOR_PALETTE <- list()
+
+COLOR_PALETTE$default <- list() 
+COLOR_PALETTE$default$Y2020 <- "#2d677f"
+COLOR_PALETTE$default$Y2015 <- "#da413d"
+COLOR_PALETTE$default$Y2010 <- "#73853a"
+  
+COLOR_PALETTE$colorblind <- list() 
+COLOR_PALETTE$colorblind$Y2020 <- "#f5793a"
+COLOR_PALETTE$colorblind$Y2015 <- "#a95aa1"
+COLOR_PALETTE$colorblind$Y2010 <- "#85c0f9"
+  
+COLOR_PALETTE$grayscale <- list() 
+COLOR_PALETTE$grayscale$Y2020 <- "#ffffff"
+COLOR_PALETTE$grayscale$Y2015 <- "#bbbbbb"
+COLOR_PALETTE$grayscale$Y2010 <- "#666666"
 
 ###############################################################################
 ###############################################################################
@@ -559,14 +581,35 @@ MapPlot <- function (input) {
       text = element_blank(),
       plot.background = element_rect(fill = "white"))
 
+  # Fix coloring for grayscale
+  if (input$color_palette == "grayscale") {
+    
+    # make outline black and fill according to year
+    outline2020 <- "#000000"
+    outline2015 <- "#000000"
+    fill2020 <- COLOR_PALETTE[[input$color_palette]]$Y2020
+    fill2015 <- COLOR_PALETTE[[input$color_palette]]$Y2015
+    
+  } else {
+    
+    # make outline according to year and fill empty
+    outline2020 <- COLOR_PALETTE[[input$color_palette]]$Y2020
+    outline2015 <- COLOR_PALETTE[[input$color_palette]]$Y2015
+    fill2020 <- NA
+    fill2015 <- NA
+ 
+  }
+  
+  
+  if (input$Y2015) {
+    p <- p + geom_point(data = filtered_zips2015, mapping = aes(x = longitude, y = latitude), colour = outline2015, fill = fill2015, shape=21, size=3)
+    }
+  
   if (input$Y2020) {
   
-    p <- p + geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = "#2d677f", shape=21, size=3)
+    p <- p + geom_point(data = filtered_zips, mapping = aes(x = longitude, y = latitude), colour = outline2020, fill = fill2020, shape=21, size=3)
   }
 
-  if (input$Y2015) {
-    p <- p +       geom_point(data = filtered_zips2015, mapping = aes(x = longitude, y = latitude), colour = "#da413d", shape=21, size=3)
-    }
 
 plot (p)
    
@@ -636,7 +679,7 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
     survey_summary <- merge(survey_summary,survey_summary2010, all=TRUE)
       
     # Add color to graph_color
-    graph_color <- c(graph_color, "#73853a")
+    graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2010)
   }
   
   # code for 2015 data
@@ -672,7 +715,7 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
     survey_summary <- merge(survey_summary,survey_summary2015, all=TRUE)
       
     # Add color to graph_color
-    graph_color <- c(graph_color, "#da413d")
+    graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2015)
   }
   
   # code for 2020 data
@@ -708,7 +751,7 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
   survey_summary <- merge(survey_summary,survey_summary2020, all=TRUE)
   
   # Add color to graph_color
-  graph_color <- c(graph_color,"#2d677f")
+  graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2020)
   
   }
   
@@ -813,7 +856,7 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     out <- merge(out,out2010, all=TRUE)
     
     # Add color to graph_color
-    graph_color <- c(graph_color,"#73853a")
+    graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2010)
     
   }
   
@@ -844,7 +887,7 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     out <- merge(out,out2015, all=TRUE)
     
     # Add color to graph_color
-    graph_color <- c(graph_color,"#da413d")
+    graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2015)
     
   }
   
@@ -874,7 +917,7 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     out <- merge(out,out2020, all=TRUE)
     
     # Add color to graph_color
-    graph_color <- c(graph_color,"#2d677f")
+    graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2020)
     
   }
   
@@ -971,17 +1014,19 @@ GradientMap <- function (input, question, title, catlab, year) {
         plot.background = element_rect(fill = "white")) +
   labs(title = stringr::str_wrap(title, width = WRAPWIDTH))
   
+  # Add gradient colors
+  # Scale white to black if grayscale, otherwise scale white to pallet color for the year
   if (year == "2010") {
   
-    p <- p + scale_fill_gradient(low = "#ffffff", high = "#73853a", na.value = "grey50", name = catlab)
+    p <- p + scale_fill_gradient(low = "#ffffff", high = ifelse (input$color_palette == "grayscale", "#000000", COLOR_PALETTE[[input$color_palette]]$Y2010), na.value = "grey50", name = catlab)
     
   } else if (year == "2015") {
   
-    p <- p + scale_fill_gradient(low = "#ffffff", high = "#da413d", na.value = "grey50", name = catlab) 
+    p <- p + scale_fill_gradient(low = "#ffffff", high =  ifelse (input$color_palette == "grayscale", "#000000", COLOR_PALETTE[[input$color_palette]]$Y2015), na.value = "grey50", name = catlab) 
     
   } else if (year == "2020") {
   
-    p <- p + scale_fill_gradient(low = "#ffffff", high = "#2d677f", na.value = "grey50", name = catlab)
+    p <- p + scale_fill_gradient(low = "#ffffff", high =  ifelse (input$color_palette == "grayscale", "#000000", COLOR_PALETTE[[input$color_palette]]$Y2020), na.value = "grey50", name = catlab)
     
   }
   
@@ -1111,6 +1156,11 @@ Adjust the appearance of the graphs here
 
 ```{r, ShowN, echo=FALSE}
 checkboxInput("show_n", "Display response numbers", FALSE)
+
+radioButtons("color_palette", "Color Palette:",
+               c("Default" = "default",
+                 "Colorblind friendly" = "colorblind",
+                 "Grayscale" = "grayscale"))
 ```
 ::::
 
