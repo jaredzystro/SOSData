@@ -35,8 +35,9 @@ h2{font-size:16px;}
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-
-### Load
+###############################################################################
+###############################################################################
+### Initialize packages and read data----
 rm(list=ls())
 
 install_or_load_pack <- function(pack){
@@ -49,11 +50,8 @@ install_or_load_pack <- function(pack){
   sapply(pack, require, character.only = TRUE)
 }
 
-
-### Initialize packages and read data----
-
 # Comment out package installation prior to deploying
-#packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData")
+#packages <- c("survey","ggplot2","shiny","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph")
 #install_or_load_pack(packages)
 
 library(survey)
@@ -78,6 +76,8 @@ data2010 <- read.csv("2010SurveyData.csv", skip=2, header=TRUE)
 # Temporary fix until I can get a better dynamic plot sizing plan in place
 PLOTHEIGHT <- 600
 
+###############################################################################
+###############################################################################
 ### Section for question data wrangling ----
 
 ### Q01A is year farm first certified
@@ -89,11 +89,17 @@ data$YearsCertified <- 2020 - data$YearsCertified
 data$YearsCertified_bin <- cut(data$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
 data$YearsCertified_bin <- factor(data$YearsCertified_bin)
 
-### 2015 tidy up
+# 2015 tidy up
 data2015$YearsCertified <- as.numeric(data2015$YearsCertified)
-# Convert to bins
+# 2015 Convert to bins
 data2015$YearsCertified_bin <- cut(data2015$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
 data2015$YearsCertified_bin <- factor(data2015$YearsCertified_bin)
+
+# 2010 tidy up
+data2010$YearsCertified <- as.numeric(data2010$YearsCertified)
+# 2010 Convert to bins
+data2010$YearsCertified_bin <- cut(data2010$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
+data2010$YearsCertified_bin <- factor(data2010$YearsCertified_bin)
 
 ### Q05 is whether they had any veg acres
 # Change non-responses to NA
@@ -105,6 +111,11 @@ data$GrowVegis <- ifelse (data$GrowVegis == "Some Annual Vegetable Crop Acres" |
 # Do the same for 2015 veg growing question
 # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
 data2015$GrowVegis <- ifelse (data2015$GrowVegis == "Yes.", 100, 0) %>%
+              as.numeric()
+
+# Do the same for 2010 veg growing question
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data2010$GrowVegis <- ifelse (data2010$GrowVegis == "Yes.", 100, 0) %>%
               as.numeric()
 
 ### Q05_2_o is vegetable acreage
@@ -121,48 +132,99 @@ data$VegiAcreage <- factor(data$VegiAcreage)
 data2015$VegiAcreage <- cut(data2015$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
 data2015$VegiAcreage <- factor(data2015$VegiAcreage)
 
+# Do the same for the 2010 VegiAcreage
+# Convert to bins
+data2010$VegiAcreage <- cut(data2010$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2010$VegiAcreage <- factor(data2010$VegiAcreage)
 
 ### Q06 is whether they had any cover crop acres
 # Change non-responses to NA
-data$Q06 <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data$Q06 <- ifelse (data$Q06 == "Some cover crop/green pasture acres" | data$Q06 == "Some Cover Crops/Green Pasture Acres", 100, 0) %>%
+data$GrowCover <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
+# Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
+data$GrowCover <- ifelse (data$GrowCover == "Some cover crop/green pasture acres" | data$GrowCover == "Some Cover Crops/Green Pasture Acres", 100, 0) %>%
               as.numeric()
+
+# Do the same for 2015 veg growing question
+# Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
+data2015$GrowCover <- ifelse (data2015$GrowCover == "Yes", 100, 0) %>%
+              as.numeric()
+
+# Cover crop not asked for 2010
 
 ### Q06_2_o is cover crop acreage
 # These lines split it into bins for plotting
 # Remove missing data keys
-data$Q06_2_o <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
-data$Q06_2_o <- as.numeric(data$Q06_2_o)
+data$CoverAcreage <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
+data$CoverAcreage <- as.numeric(data$CoverAcreage)
 # Convert to bins
-data$Q06_2_o_bin <- cut(data$Q06_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$Q06_2_o_bin <- factor(data$Q06_2_o_bin)
+data$CoverAcreage <- cut(data$CoverAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$CoverAcreage <- factor(data$CoverAcreage)
 
+# Do the same for the 2015 CoverAcreage
+# Convert to bins
+data2015$CoverAcreage <- cut(data2015$CoverAcres, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2015$CoverAcreage <- factor(data2015$CoverAcreage)
+
+# Cover crop not asked for 2010
 
 ### Q07 is whether they had any field crop acres
 # Change non-responses to NA
-data$Q07 <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
+data$GrowField <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
+# Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
+data$GrowField <- ifelse (data$GrowField == "Some field crop acres" | data$GrowField == "Some field crop acres:", 100, 0) %>% as.numeric()
+
+# Do the same for 2015 field growing question
 # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data$Q07 <- ifelse (data$Q07 == "Some field crop acres" | data$Q07 == "Some field crop acres:", 100, 0) %>% as.numeric()
+data2015$GrowField <- ifelse (data2015$GrowField == "Yes.", 100, 0) %>%
+              as.numeric()
+
+# Do the same for 2010 veg growing question
+# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+data2010$GrowField <- ifelse (data2010$GrowField == "Yes.", 100, 0) %>%
+              as.numeric()
 
 ### Q07_2_o is field crop acreage
 # These lines split it into bins for plotting
 # Remove missing data keys
-data$Q07_2_o <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
-data$Q07_2_o <- as.numeric(data$Q07_2_o)
+data$FieldAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
+data$FieldAcreage <- as.numeric(data$FieldAcreage)
 # Convert to bins
-data$Q07_2_o_bin <- cut(data$Q07_2_o, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$Q07_2_o_bin <- factor(data$Q07_2_o_bin)
+data$FieldAcreage <- cut(data$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data$FieldAcreage <- factor(data$FieldAcreage)
 
-# Converting responses to numeric form
-data$Q05aA <- as.numeric(data$Q05aA)
-data$Q06aA <- as.numeric(data$Q06aA)
-data$Q07aA <- as.numeric(data$Q07aA)
+# Do the same for the 2015 FieldAcreage
+# Convert to bins
+data2015$FieldAcreage <- cut(data2015$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2015$FieldAcreage <- factor(data2015$FieldAcreage)
+
+# Do the same for the 2010 FieldAcreage
+# Convert to bins
+data2010$FieldAcreage <- cut(data2010$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+data2010$FieldAcreage <- factor(data2010$FieldAcreage)
+
+# Percent organic vegetable seed
+data$OGVegiSeed <- as.numeric(data$Q05aA)
+data2015$OGVegiSeed <- as.numeric(data2015$OGVegiSeed)
+data2010$OGVegiSeed <- as.numeric(data2010$OGVegiSeed)
+
+# Percent organic cover seed
+data$OGCoverSeed <- as.numeric(data$Q06aA)
+data2015$OGCoverSeed <- as.numeric(data2015$OGCoverSeed)
+# No data for cover
+
+# Percent organic field crop seed
+data$OGFieldSeed <- as.numeric(data$Q07aA)
+data2015$OGFieldSeed <- as.numeric(data2015$OGFieldSeed)
+data2010$OGFieldSeed <- as.numeric(data2010$OGFieldSeed)
 
 # Q26B is what percentage of seed they got from seed they saved
 # Making a column to turn this into yes/no with 100 = yes, 0 = no
-data$Q26B_yes <- as.numeric(data$Q26B)
-data$Q26B_yes <- ifelse(!is.na(data$Q26B_yes) & data$Q26B_yes>0, 100, 0)
+data$SeedSourceOwn0or100 <- as.numeric(data$Q26B)
+data$SeedSourceOwn0or100 <- ifelse(!is.na(data$SeedSourceOwn) & data$SeedSourceOwn>0, 100, 0)
+
+data2015$SeedSourceOwn0or100 <- ifelse(!is.na(data2015$SeedSourceOwn) & data2015$SeedSourceOwn>0, 100, 0)
+
+data2010$SeedSourceOwn0or100 <- ifelse(!is.na(data2010$SeedSourceOwn) & data2010$SeedSourceOwn>0, 100, 0)
 
 # Q34 is Are you interested in producing organic seed for commercial use at some point in the future?
 # Change non-responses to NA
@@ -198,6 +260,8 @@ data$Q29H <- CleanUpSeedFactorQs(data$Q29H)
 #Convert Respondent ID to factor
 data$RespID <- factor(data$RespID)
 
+###############################################################################
+###############################################################################
 ### Create additional global variables ----
 
 # Add column of state abbreviations to data based on zipcode
@@ -205,6 +269,7 @@ getzipcode <- zipcode$state
 names(getzipcode) <- zipcode$zip
 data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
 data2015$state <- unname(getzipcode[as.character(data2015[,"Zip1"])])
+data2010$state <- data2010$State
 
 # Create weight and survey object for survey based on current total population of organic producers (14,217 as of 2020)
 tot_pop <- 14217
@@ -228,6 +293,17 @@ mydesign2015 <-
     weights = ~weight
   )
 
+# Create weight and survey object for 2015 survey based on 2014 total population of organic producers (14,093)
+tot_pop2010 <- 10903
+data2010$weight <- length(data2010$RespondentID) / tot_pop
+
+mydesign2010 <- 
+  svydesign( 
+    ids = ~1 , 
+    data = data2010 , 
+    weights = ~weight
+  )
+
 # Get sp type shape data for states
 # Add column of abbreviations
 data("us_states")
@@ -242,10 +318,13 @@ zips <- left_join(data[,c("Q04A","zip")], zipcode, by = "zip")
 zips <- zips[zips$state != "HI",]
 zips <- zips[zips$state != "AK",]
 
+# 2015 zipcode wrangling
 data2015$zip <- as.character(data2015$Zip1)
 zips2015 <- left_join(data2015[,c("Zip1","zip")], zipcode, by = "zip")
 zips2015 <- zips2015[zips2015$state != "HI",]
 zips2015 <- zips2015[zips2015$state != "AK",]
+
+# No zipcode data for 2010
 
 
 # Get state data for gradient maps and convert to upper case
@@ -341,11 +420,14 @@ states_map$state <- state.abb[match(states_map$region,state.name)]
 # svyby(~Q07AA, list(data$state=="IN"), mydesign, svymean,vartype="ci")
 
 #input$state <- c("CA","OR")
+###############################################################################
+###############################################################################
+### Graphing functions ----
 
 ### Function to generate map based on producer zip and selected states ----
 MapPlot <- function (input) {
   
-# Avoid red error message when nothing is selected for input$state by validating
+  # Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose a state.'))
   
   if (input$state=="All") {
@@ -354,20 +436,20 @@ MapPlot <- function (input) {
     filtered_zips <- zips
     filtered_zips2015 <- zips2015
     
-# Filter zip code points and state shapes based on input$state
+  # Filter zip code points and state shapes based on input$state
   } else {
     
- #   full_name <- state.name[match(input$state,state.abb)]
+    # full_name <- state.name[match(input$state,state.abb)]
     filtered_states <- us_states[us_states$state %in% input$state,]
     filtered_zips <- zips[zips$state %in% input$state,]
     filtered_zips2015 <- zips2015[zips2015$state %in% input$state,]
   }
   
-# ggplot of state shapes (goem_sf) and zip codes (goem_point)
-# shape=21 is open circle
-# coords_sf is set to get rid of longitude and latitude notations
-# theme is set to get rid of lines
-p <-  ggplot(data = filtered_states) +
+  # ggplot of state shapes (goem_sf) and zip codes (goem_point)
+  # shape=21 is open circle
+  # coords_sf is set to get rid of longitude and latitude notations
+  # theme is set to get rid of lines
+  p <-  ggplot(data = filtered_states) +
     geom_sf(colour = "black", fill = "white") +
     coord_sf(crs = st_crs(filtered_states), datum = NA) +
     theme(
@@ -393,7 +475,7 @@ plot (p)
 ### Function to make box plots of question means and errors ----
 BoxPlot <- function (input, question, title, xlab, ylab) {
   
-# dummy variables for testing
+  # dummy variables for testing
   # input <- list()
   # input$state <- "All"
   # input$Y2015 <- TRUE
@@ -401,14 +483,15 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
   # input$show_n <- TRUE
   # question <-"GrowVegis"
   
-# Avoid red error message when nothing is selected for input$state by validating
+  # Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose at least one state.'))
-  validate(need(input$Y2015 | input$Y2020, 'Please choose at least one year.'))
+  validate(need(input$Y2010 | input$Y2015 | input$Y2020, 'Please choose at least one year.'))
   validate(need((!is.null(data[[question]]) & input$Y2020) |
-                (!is.null(data2015[[question]]) & input$Y2015)
+                (!is.null(data2015[[question]]) & input$Y2015) |
+                (!is.null(data2010[[question]]) & input$Y2010)
                 , 'Data not available for this question for the year(s) selected'))
   
-# Empty summary dataframe to add year data to
+  # Empty summary dataframe to add year data to
   survey_summary <- data.frame (
       "year" = character(),
       "question" = integer(),
@@ -417,8 +500,80 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
       "n" = integer()
     )
   
-  # Empty color pallet
+  # Empty color palette
   graph_color <- character()
+  
+  # code for 2010 data
+  if (!is.null(data2010[[question]]) & input$Y2010) {
+   
+    if (input$state == "All") {
+ 
+        sub2010 <- mydesign2010 
+  
+    } else {
+      
+        # filter to only survey data for correct states
+        sub2010 <- subset(mydesign2010,state %in% input$state) 
+        
+    }
+
+    # Compile mean, error and total number of responses
+    survey_mean2010 <- svymean(as.formula(paste0("~",question)), sub2010, na.rm=TRUE)
+    responses2010 <- sub2010$variables[question]
+    n2010 <- length(responses2010[!is.na(responses2010)])
+
+      # Create new data frame from compiled data for ggplot
+    survey_summary2010 <- data.frame (
+      "year" = "2010",
+      "question" = question,
+      "mean" = as.data.frame(survey_mean2010)$mean,
+      "CI" = as.data.frame(survey_mean2010)[[question]]*1.96,
+      "n" = n2010
+    )
+    survey_summary2010$summary_labels <- paste("n = ",survey_summary2010$n,sep="")
+     
+    # Add to overall summary dataframe
+    survey_summary <- merge(survey_summary,survey_summary2010, all=TRUE)
+      
+    # Add color to graph_color
+    graph_color <- c(graph_color, "#73853a")
+  }
+  
+  # code for 2015 data
+  if (!is.null(data2015[[question]]) & input$Y2015) {
+   
+    if (input$state == "All") {
+ 
+        sub2015 <- mydesign2015 
+  
+    } else {
+      
+        # filter to only survey data for correct states
+        sub2015 <- subset(mydesign2015,state %in% input$state) 
+        
+    }
+
+    # Compile mean, error and total number of responses
+    survey_mean2015 <- svymean(as.formula(paste0("~",question)), sub2015, na.rm=TRUE)
+    responses2015 <- sub2015$variables[question]
+    n2015 <- length(responses2015[!is.na(responses2015)])
+
+      # Create new data frame from compiled data for ggplot
+    survey_summary2015 <- data.frame (
+      "year" = "2015",
+      "question" = question,
+      "mean" = as.data.frame(survey_mean2015)$mean,
+      "CI" = as.data.frame(survey_mean2015)[[question]]*1.96,
+      "n" = n2015
+    )
+    survey_summary2015$summary_labels <- paste("n = ",survey_summary2015$n,sep="")
+     
+    # Add to overall summary dataframe
+    survey_summary <- merge(survey_summary,survey_summary2015, all=TRUE)
+      
+    # Add color to graph_color
+    graph_color <- c(graph_color, "#da413d")
+  }
   
   # code for 2020 data
   if (!is.null(data[[question]]) & input$Y2020) {
@@ -429,17 +584,17 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
       
     } else {
       
-# filter to only survey data for correct states
+      # filter to only survey data for correct states
       sub2020 <- subset(mydesign,state %in% input$state)
       
     }
 
-  # Compile mean, error and total number of responses
+    # Compile mean, error and total number of responses
     survey_mean2020 <- svymean(as.formula(paste0("~",question)), sub2020, na.rm=TRUE)
     responses <- sub2020$variables[question]
     n2020 <- length(responses[!is.na(responses)])
 
-  # Create new data frame from compiled data for ggplot
+    # Create new data frame from compiled data for ggplot
     survey_summary2020 <- data.frame (
       "year" = "2020",
       "question" = question,
@@ -449,48 +604,12 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
     )
   survey_summary2020$summary_labels <- paste("n = ",survey_summary2020$n,sep="")
   
-# Add to overall summary dataframe
+  # Add to overall summary dataframe
   survey_summary <- merge(survey_summary,survey_summary2020, all=TRUE)
   
   # Add color to graph_color
   graph_color <- c(graph_color,"#2d677f")
   
-  }
-
-  # code for 2015 data
-  if (!is.null(data2015[[question]]) & input$Y2015) {
-   
-    if (input$state == "All") {
- 
-        sub2015 <- mydesign2015 
-  
-    } else {
-      
-# filter to only survey data for correct states
-        sub2015 <- subset(mydesign2015,state %in% input$state) 
-        
-    }
-
-# Compile mean, error and total number of responses
-      survey_mean2015 <- svymean(as.formula(paste0("~",question)), sub2015, na.rm=TRUE)
-      responses2015 <- sub2015$variables[question]
-      n2015 <- length(responses2015[!is.na(responses2015)])
-
-  # Create new data frame from compiled data for ggplot
-     survey_summary2015 <- data.frame (
-      "year" = "2015",
-      "question" = question,
-      "mean" = as.data.frame(survey_mean2015)$mean,
-      "CI" = as.data.frame(survey_mean2015)[[question]]*1.96,
-      "n" = n2015
-    )
-    survey_summary2015$summary_labels <- paste("n = ",survey_summary2015$n,sep="")
-     
-    # Add to overall summary dataframe
-      survey_summary <- merge(survey_summary,survey_summary2015, all=TRUE)
-      
-    # Add color to graph_color
-      graph_color <- c(graph_color, "#da413d")
   }
   
 # ggplot plots mean (goem_bar) and error (geom_errorbar)
@@ -507,24 +626,26 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
 # geom_bar() +
 # scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = wrap_width))
   
-p <- ggplot(survey_summary, aes(x=question, fill = year, y=mean)) +
-  geom_bar(stat = "identity", color = "black", width = 0.3, position = position_dodge(width=0.9)) +
-  geom_errorbar(alpha = 1, mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), position = position_dodge(width=0.9),  size=.75, width=.1) +
-  scale_fill_manual(values = graph_color) +
-  ylim(0,100) +
-  geom_text(aes(label=round(mean,1), vjust=2), color="black", size=10, position = position_dodge(width = 0.9)) +
-  theme_linedraw(base_size = 30) +
-  labs(title = title,
+  p <- ggplot(survey_summary, aes(x=question, fill = year, y=mean)) +
+    geom_bar(stat = "identity", color = "black", width = 0.3, position = position_dodge(width=0.9)) +
+    geom_errorbar(alpha = 1, 
+                  mapping = aes(x = question, ymin = mean-CI, ymax = mean+CI), 
+                  position = position_dodge(width=0.9),  size=.75, width=.1) +
+    scale_fill_manual(values = graph_color) +
+    ylim(0,100) +
+    geom_text(aes(label=round(mean,1), vjust=2), color="black", size=10, position = position_dodge(width = 0.9)) +
+    theme_linedraw(base_size = 30) +
+    labs(title = title,
         x = xlab, y = ylab) +
-  theme(plot.title = element_text(hjust = 0.5),
+    theme(plot.title = element_text(hjust = 0.5),
           axis.text.x = element_blank())
 
-# Remove legend if only one year
+  # Remove legend if only one year
   if (nrow(survey_summary) == 1) {
     p <- p +  theme(legend.position="none")
   }
 
-# Add n if checked
+  # Add n if checked
   if (input$show_n) {
     p <- p + geom_text(aes(label=summary_labels, vjust=4), color="black", size=10, position = position_dodge(width = 0.9))
   }
@@ -544,14 +665,15 @@ BinPlot <- function (input, question, title, xlab, ylab) {
 # input$show_n <- TRUE
 # question <-"VegiAcreage"
   
-# Avoid red error message when nothing is selected for input$state by validating
+  # Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose at least one state.'))
-  validate(need(input$Y2015 | input$Y2020, 'Please choose at least one year.'))
+  validate(need(input$Y2010 | input$Y2015 | input$Y2020, 'Please choose at least one year.'))
   validate(need((!is.null(data[[question]]) & input$Y2020) |
-                (!is.null(data2015[[question]]) & input$Y2015)
+                (!is.null(data2015[[question]]) & input$Y2015) |
+                (!is.null(data2010[[question]]) & input$Y2010)
                   , 'Data not available for this question for the year(s) selected'))
     
-# Build empty dataframe to add year summary data to
+  # Build empty dataframe to add year summary data to
   out <- data_frame(
     "summary" = integer(),
     "summary_low" = integer(),
@@ -561,54 +683,55 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     "year" = character()
   )
   
-# Empty color pallet
+  # Empty color palette
   graph_color <- character()
   
-  # code for 2020 data
-  if (!is.null(data[[question]]) & input$Y2020) {
+    # Code for 2010 data
+  if (!is.null(data2010[[question]]) & input$Y2010) {
   
-  # Remove missing data
-    data <- data[!is.na(data[question]),]
-    mydesign2020 <- data %>% as_survey_design(id = 1, weight  = weight)
+    # Remove missing data
+    data2010 <- data2010[!is.na(data2010[question]),]
+    mydesign2010 <- data2010 %>% as_survey_design(id = 1, weight  = weight)
     
     if (input$state == "All") {
-        sub2020 <- mydesign2020
+        sub2010 <- mydesign2010
       } else {
-  # Filter to input states
-        sub2020 <- subset(mydesign2020,state %in% input$state)
+        # Filter to input states
+        sub2010 <- subset(mydesign2010,state %in% input$state)
       }
       
-  # Create summary data of means and confidence intervals for bins
-    out2020 <- sub2020 %>%
+    # Create summary data of means and confidence intervals for bins
+    out2010 <- sub2010 %>%
       group_by_at(question) %>%
       summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
       mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-    out2020$summary_labels <- paste("n = ",out2020$n,sep="")
-    out2020$year <- "2020"
+    out2010$summary_labels <- paste("n = ",out2010$n,sep="")
+    out2010$year <- "2010"
+    out2010$color <- "#da413d"
     
     # merge with overall summary
-    out <- merge(out,out2020, all=TRUE)
+    out <- merge(out,out2010, all=TRUE)
     
     # Add color to graph_color
-    graph_color <- c(graph_color,"#2d677f")
+    graph_color <- c(graph_color,"#73853a")
     
   }
   
-  # code for 2015 data
+  # Code for 2015 data
   if (!is.null(data2015[[question]]) & input$Y2015) {
   
-  # Remove missing data
+    # Remove missing data
     data2015 <- data2015[!is.na(data2015[question]),]
     mydesign2015 <- data2015 %>% as_survey_design(id = 1, weight  = weight)
     
     if (input$state == "All") {
         sub2015 <- mydesign2015
       } else {
-  # Filter to input states
+        # Filter to input states
         sub2015 <- subset(mydesign2015,state %in% input$state)
       }
       
-  # Create summary data of means and confidence intervals for bins
+    # Create summary data of means and confidence intervals for bins
     out2015 <- sub2015 %>%
       group_by_at(question) %>%
       summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
@@ -625,7 +748,37 @@ BinPlot <- function (input, question, title, xlab, ylab) {
     
   }
   
-# ggplot of means (geom_bar) and error (geom_errorbar) for bins
+  # Code for 2020 data
+  if (!is.null(data[[question]]) & input$Y2020) {
+  
+    # Remove missing data
+    data <- data[!is.na(data[question]),]
+    mydesign2020 <- data %>% as_survey_design(id = 1, weight  = weight)
+    
+    if (input$state == "All") {
+        sub2020 <- mydesign2020
+      } else {
+        # Filter to input states
+        sub2020 <- subset(mydesign2020,state %in% input$state)
+      }
+      
+    # Create summary data of means and confidence intervals for bins
+    out2020 <- sub2020 %>%
+      group_by_at(question) %>%
+      summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+      mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+    out2020$summary_labels <- paste("n = ",out2020$n,sep="")
+    out2020$year <- "2020"
+    
+    # Merge with overall summary
+    out <- merge(out,out2020, all=TRUE)
+    
+    # Add color to graph_color
+    graph_color <- c(graph_color,"#2d677f")
+    
+  }
+  
+  # ggplot of means (geom_bar) and error (geom_errorbar) for bins
   p <- ggplot(data = out, aes_string(x = question, y = "summary",  fill = "year")) +
     geom_bar(stat = "identity", color = "black", width = 0.3, position = position_dodge(width=0.9)) +
     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp",  fill = "year"), inherit.aes = FALSE, size=.75, width=.1, position = position_dodge(width=0.9)) +
@@ -651,47 +804,58 @@ BinPlot <- function (input, question, title, xlab, ylab) {
 }
 
 ## Scratch code for gradient maps
-GradientMap <- function (input, question, title, catlab) {
+GradientMap <- function (input, question, title, catlab, year) {
 
-# dummy data for testing
-#  input <- list()
-#  input$state <- c("AZ","CA","WA","OR","NV")
-#  input$state <- c("All")
-#  question <- "Q05aA"
-#  catlab <- "Percent Vegetable Seed Used"
+  # dummy data for testing
+  #  input <- list()
+  #  input$state <- c("AZ","CA","WA","OR","NV")
+  #  input$state <- c("All")
+  #  question <- "Q05aA"
+  #  catlab <- "Percent Vegetable Seed Used"
   
   validate(need(input$state, 'Please choose at least one state.'))
   
-  data <- data[!is.na(data[question]),]
+  if (year == "2010") {
+    
+    mapdata <- data2010[!is.na(data2010[question]),]
+    
+  } else if (year == "2015") {
+    
+    mapdata <- data2015[!is.na(data2015[question]),]
+    
+  } else if (year == "2020") {
+    
+    mapdata <- data[!is.na(data[question]),]
+    
+  }
+  
   
   if (input$state=="All") {
     
     filtered_state_map <- states_map
     filtered_state_names <- state.name
-    filtered_data <- data[,c(question,"state")]
+    filtered_data <- mapdata[,c(question,"state")]
     
-# Filter zip code points and state shapes based on input$state
+  # Filter zip code points and state shapes based on input$state
   } else {
     
     filtered_state_map <- states_map[states_map$state %in% input$state,]
-    filtered_data <- data[,c(question,"state")]
+    filtered_data <- mapdata[,c(question,"state")]
     filtered_data <- filtered_data[filtered_data$state %in% input$state,]
 
   }
 
-# Retrieve the states map data and merge with pounds data
+  # Retrieve the states map data and merge with pounds data
 
-data_sum <- filtered_data %>%
-  group_by(state) %>%
+  data_sum <- filtered_data %>%
+    group_by(state) %>%
     summarise(mean = mean(.data[[question]]), n = n())
 
-seed_map <- left_join(filtered_state_map, data_sum, by = "state")
+  seed_map <- left_join(filtered_state_map, data_sum, by = "state")
 
-# Create the map
-
-  ggplot(seed_map, aes(long, lat, group = group))+
-  geom_polygon(aes(fill = mean), color = "grey50")+
-  scale_fill_gradient(low = "#ffffff", high = "#2d677f", na.value = "grey50", name = catlab) +
+  # Create the map
+  p <- ggplot(seed_map, aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = mean), color = "grey50") +
   coord_sf(crs = st_crs(seed_map), datum = NA) +
   theme_linedraw(base_size = 30) +
   theme(
@@ -706,6 +870,22 @@ seed_map <- left_join(filtered_state_map, data_sum, by = "state")
         legend.text =  element_text(size = rel(0.5)),
         plot.background = element_rect(fill = "white")) +
   labs(title = title)
+  
+  if (year == "2010") {
+  
+    p <- p + scale_fill_gradient(low = "#ffffff", high = "#73853a", na.value = "grey50", name = catlab)
+    
+  } else if (year == "2015") {
+  
+    p <- p + scale_fill_gradient(low = "#ffffff", high = "#da413d", na.value = "grey50", name = catlab) 
+    
+  } else if (year == "2020") {
+  
+    p <- p + scale_fill_gradient(low = "#ffffff", high = "#2d677f", na.value = "grey50", name = catlab)
+    
+  }
+  
+  plot(p)
 
 }
 
@@ -817,7 +997,8 @@ By default, responses from all states are shown. To select a specific state or s
 selectInput("state", "State:", choices=c("All",sort(unique(data$state))), selected="All", multiple=TRUE)
 
 checkboxInput("Y2020", "Display 2020 Data", TRUE)
-checkboxInput("Y2015", "Display 2015 Data", FALSE)
+checkboxInput("Y2015", "Display 2015 Data", TRUE)
+checkboxInput("Y2010", "Display 2010 Data", TRUE)
 ```
 ::::
 
@@ -897,7 +1078,7 @@ $~$
 ```{r, CoverProducer, echo=FALSE}
     renderPlot({
     
-       BoxPlot (input = input, question = "Q06", title = "Percentage of Respondents who Produce \nCover Crops or Green Pasture", xlab = "", ylab = "Percentage")
+       BoxPlot (input = input, question = "GrowCover", title = "Percentage of Respondents who Produce \nCover Crops or Green Pasture", xlab = "", ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -910,7 +1091,7 @@ $~$
 ```{r, CoverAcre, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q06_2_o_bin", title = "Cover Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Cover Crop Acreage"), ylab = "Percentage")
+       BinPlot (input = input, question = "CoverAcreage", title = "Cover Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Cover Crop Acreage"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -923,7 +1104,7 @@ $~$
 ```{r, FieldProducer, echo=FALSE}
     renderPlot({
     
-       BoxPlot (input = input, question = "Q07", title = "Percentage of Respondents who Produce Field Crops", xlab = "", ylab = "Percentage")
+       BoxPlot (input = input, question = "GrowField", title = "Percentage of Respondents who Produce Field Crops", xlab = "", ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -936,7 +1117,7 @@ $~$
 ```{r, FieldAcre, echo=FALSE}
     renderPlot({
     
-       BinPlot (input = input, question = "Q07_2_o_bin", title = "Field Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Field Crop Acreage"), ylab = "Percentage")
+       BinPlot (input = input, question = "FieldAcreage", title = "Field Crop Acreage", xlab = paste(paste(input$state,collapse = " "),"Field Crop Acreage"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
 
@@ -953,16 +1134,50 @@ $~$
 ```{r, VegOGSeed, echo=FALSE}
     renderPlot({
     
-      BoxPlot (input = input, question = "Q05aA", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
+      BoxPlot (input = input, question = "OGVegiSeed", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state, collapse = " "),"Vegetable Acreage"), ylab = "Percentage")
       
     }, height = PLOTHEIGHT)
+
+    # Still leaves a space if not rendered, need to figure out how to fix
+
+### Scratch example code to possible use
+# output$unsized <- renderPlot({
+#   partydata <- long_data %>%
+#     filter(Partei == input$map.party & Jahr == as.Date(input$map.year, "%Y"))
+#   g2g14@data <- old_geodata
+#   g2g14@data <- merge(g2g14@data, partydata, by.x =  "GMDNR",by.y ="BFSNr")
+# 
+#   cols <- brewer.pal(5, "Purples")
+#   brks <- seq(0,100,20)
+#   colsForMap <- cols[findInterval(g2g14@data$Staerke, vec = brks[1:5])]
+# 
+#   plot(g2g14, col = colsForMap, border = "white")
+#   legend("topleft", legend = levels(cut(g2g14@data$Staerke, brks)), fill = cols, border = "white", title = "Parteistärke in %")
+# 
+# })
+# 
+# renderUI({
+#   plotOutput("unsized", height = 500, width = 500)
+# })
+
 
 renderPlot({
-    
-      GradientMap (input = input, question = "Q05aA", title = "Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
-      
-    }, height = PLOTHEIGHT)
+     if (input$Y2020) {
+      GradientMap (input = input, question = "OGVegiSeed", title = "2020 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+     }
+})
 
+renderPlot({
+       if (input$Y2015) {
+      GradientMap (input = input, question = "OGVegiSeed", title = "2015 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+     }
+})
+
+renderPlot({
+       if (input$Y2010) {
+      GradientMap (input = input, question = "OGVegiSeed", title = "2010 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2010")
+     }
+})
 ```
 
 $~$
@@ -971,16 +1186,20 @@ $~$
 
 ```{r, CoverOGSeed, echo=FALSE}
     renderPlot({
-    
-     BoxPlot (input = input, question = "Q06aA", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
-      
+     BoxPlot (input = input, question = "OGCoverSeed", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Cover Crop Acreage"), ylab = "Percentage")
 }, height = PLOTHEIGHT)
 
+    renderPlot({
+      if (input$Y2020) {
+      GradientMap (input = input, question = "OGCoverSeed", title = "2020 Percent Cover Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+      }
+    })
+
 renderPlot({
-    
-      GradientMap (input = input, question = "Q06aA", title = "Percent Cover Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
-      
-    }, height = PLOTHEIGHT)
+      if (input$Y2015) {
+      GradientMap (input = input, question = "OGCoverSeed", title = "2015 Percent Vegetable Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+      }
+    })
 
 ```
 
@@ -991,15 +1210,27 @@ $~$
 ```{r, FieldOGSeed, echo=FALSE}
     renderPlot({
     
-     BoxPlot (input = input, question = "Q07aA", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
+     BoxPlot (input = input, question = "OGFieldSeed", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", xlab = paste(paste(input$state,collapse=" "),"Field Crop Acreage"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 
+    renderPlot({
+      if (input$Y2020) {
+        GradientMap (input = input, question = "OGFieldSeed", title = "2020 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2020")
+      }
+    })
+
 renderPlot({
-    
-      GradientMap (input = input, question = "Q06aA", title = "Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage")
-      
-    }, height = PLOTHEIGHT)
+      if (input$Y2015) {
+        GradientMap (input = input, question = "OGFieldSeed", title = "2015 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2015")
+      }
+    })
+
+renderPlot({
+      if (input$Y2010) {
+        GradientMap (input = input, question = "OGFieldSeed", title = "2010 Percent Field Crop Acreage \nPlanted To Organic Seed", catlab =  "Percentage", year = "2010")
+      }
+    })
 
 ```
 
@@ -1014,15 +1245,33 @@ $~$
 ```{r, SeedProduction, echo=FALSE}
     renderPlot({
     
-     BoxPlot (input = input, question = "Q26B_yes", title = "Percentage of Producers \nGrowing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
+     BoxPlot (input = input, question = "SeedSourceOwn0or100", title = "Percentage of Producers \nGrowing Their Own Seed", xlab = paste(paste(input$state,collapse=" "),"Share of Producers"), ylab = "Percentage")
       
 }, height = PLOTHEIGHT)
 
-renderPlot({
-    
-      GradientMap (input = input, question = "Q26B_yes", title = "Percentage of Producers \nGrowing Their Own Seed", catlab =  "Percentage")
+    renderPlot({
+      if (input$Y2020) {
+        
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2020 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2020")
       
-    }, height = PLOTHEIGHT)
+      }
+    })
+    
+        renderPlot({
+      if (input$Y2015) {
+        
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2015 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2015")
+      
+      }
+    })
+        
+            renderPlot({
+      if (input$Y2010) {
+        
+        GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2010 Producers \nGrowing Their Own Seed", catlab =  "Percentage", year = "2010")
+      
+      }
+    })
 
 ```
 
