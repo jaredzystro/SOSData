@@ -51,7 +51,7 @@ install_or_load_pack <- function(pack){
 }
 
 # Comment out package installation prior to deploying
-#packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph","shinycssloaders")
+#packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph","shinycssloaders","memoise")
 #install_or_load_pack(packages)
 
 library(survey)
@@ -66,434 +66,439 @@ library(stringr)
 library(maps)
 library(ggiraph)
 library(shinycssloaders)
-
-zipcode <- read.csv("zipcode.csv", as.is = TRUE)
-data <- read.csv("NORA19_merged.csv")
-key <- read.csv("question_labels.csv")
-data2015 <- read.csv("2015SurveyData.csv", skip=2, header=TRUE)
-data2010 <- read.csv("2010SurveyData.csv", skip=2, header=TRUE)
-
-# Constant to set plot heights in pixels
-# Temporary fix until I can get a better dynamic plot sizing plan in place
-PLOTHEIGHT <- 600
-
-# Constant to set plot title wrapping
-WRAPWIDTH <- 30
-
-# Constant to set plot text size
-BASESIZE <- 22
-
-# Constant to set response label size
-LABELSIZE <- 8
-
-### Color palettes 
-# dummy variables to test
-# input<- list()
-# input$color_palette <- "default"
-
-COLOR_PALETTE <- list()
-
-COLOR_PALETTE$default <- list() 
-COLOR_PALETTE$default$Y2020 <- "#2d677f"
-COLOR_PALETTE$default$Y2015 <- "#da413d"
-COLOR_PALETTE$default$Y2010 <- "#73853a"
-  
-COLOR_PALETTE$colorblind <- list() 
-COLOR_PALETTE$colorblind$Y2020 <- "#f5793a"
-COLOR_PALETTE$colorblind$Y2015 <- "#a95aa1"
-COLOR_PALETTE$colorblind$Y2010 <- "#85c0f9"
-  
-COLOR_PALETTE$grayscale <- list() 
-COLOR_PALETTE$grayscale$Y2020 <- "#ffffff"
-COLOR_PALETTE$grayscale$Y2015 <- "#bbbbbb"
-COLOR_PALETTE$grayscale$Y2010 <- "#666666"
-
-###############################################################################
-###############################################################################
-### Section for question data wrangling ----
-
-### Q01A is year farm first certified ----
-# These lines tidy it up and split into bins for plotting
-data$YearsCertified <- as.numeric(data$Q01A)
-# Convert to years certified
-data$YearsCertified <- 2020 - data$YearsCertified
-# Convert to bins
-data$YearsCertified_bin <- cut(data$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
-data$YearsCertified_bin <- factor(data$YearsCertified_bin)
-
-# 2015 tidy up
-data2015$YearsCertified <- as.numeric(data2015$YearsCertified)
-# 2015 Convert to bins
-data2015$YearsCertified_bin <- cut(data2015$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
-data2015$YearsCertified_bin <- factor(data2015$YearsCertified_bin)
-
-# 2010 tidy up
-data2010$YearsCertified <- as.numeric(data2010$YearsCertified)
-# 2010 Convert to bins
-data2010$YearsCertified_bin <- cut(data2010$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
-data2010$YearsCertified_bin <- factor(data2010$YearsCertified_bin)
-
-### Q05 is whether they had any veg acres ----
-# Change non-responses to NA
-data$GrowVegis <- ifelse (data$Q05 == "No answer" | data$Q05 == "partial complete" | data$Q05 == "skipped due to branching", NA, data$Q05)
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data$GrowVegis <- ifelse (data$GrowVegis == "Some Annual Vegetable Crop Acres" | data$GrowVegis == "Some annual vegetable crop acres:", 100, 0) %>%
-              as.numeric()
-
-# Do the same for 2015 veg growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2015$GrowVegis <- ifelse (data2015$GrowVegis == "Yes.", 100, 0) %>%
-              as.numeric()
-
-# Do the same for 2010 veg growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2010$GrowVegis <- ifelse (data2010$GrowVegis == "Yes.", 100, 0) %>%
-              as.numeric()
-
-### Q05_2_o is vegetable acreage ----
-# These lines split it into bins for plotting
-# Remove missing data keys
-data$VegiAcreage <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
-data$VegiAcreage <- as.numeric(data$VegiAcreage)
-# Convert to bins
-data$VegiAcreage <- cut(data$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$VegiAcreage <- factor(data$VegiAcreage)
-
-# Do the same for the 2015 VegiAcreage
-# Convert to bins
-data2015$VegiAcreage <- cut(data2015$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2015$VegiAcreage <- factor(data2015$VegiAcreage)
-
-# Do the same for the 2010 VegiAcreage
-# Convert to bins
-data2010$VegiAcreage <- cut(data2010$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2010$VegiAcreage <- factor(data2010$VegiAcreage)
-
-### Q06 is whether they had any cover crop acres ----
-# Change non-responses to NA
-data$GrowCover <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
-# Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
-data$GrowCover <- ifelse (data$GrowCover == "Some cover crop/green pasture acres" | data$GrowCover == "Some Cover Crops/Green Pasture Acres", 100, 0) %>%
-              as.numeric()
-
-# Do the same for 2015 veg growing question
-# Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
-data2015$GrowCover <- ifelse (data2015$GrowCover == "Yes", 100, 0) %>%
-              as.numeric()
-
-# Cover crop not asked for 2010
-
-### Q06_2_o is cover crop acreage ----
-# These lines split it into bins for plotting
-# Remove missing data keys
-data$CoverAcreage <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
-data$CoverAcreage <- as.numeric(data$CoverAcreage)
-# Convert to bins
-data$CoverAcreage <- cut(data$CoverAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$CoverAcreage <- factor(data$CoverAcreage)
-
-# Do the same for the 2015 CoverAcreage
-# Convert to bins
-data2015$CoverAcreage <- cut(data2015$CoverAcres, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2015$CoverAcreage <- factor(data2015$CoverAcreage)
-
-# Cover crop not asked for 2010
-
-### Q07 is whether they had any field crop acres ----
-# Change non-responses to NA
-data$GrowField <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
-# Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
-data$GrowField <- ifelse (data$GrowField == "Some field crop acres" | data$GrowField == "Some field crop acres:", 100, 0) %>% as.numeric()
-
-# Do the same for 2015 field growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2015$GrowField <- ifelse (data2015$GrowField == "Yes.", 100, 0) %>%
-              as.numeric()
-
-# Do the same for 2010 field growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2010$GrowField <- ifelse (data2010$GrowField == "Yes.", 100, 0) %>%
-              as.numeric()
-
-### Q07_2_o is field crop acreage ----
-# These lines split it into bins for plotting
-# Remove missing data keys
-data$FieldAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
-data$FieldAcreage <- as.numeric(data$FieldAcreage)
-# Convert to bins
-data$FieldAcreage <- cut(data$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$FieldAcreage <- factor(data$FieldAcreage)
-
-# Do the same for the 2015 FieldAcreage
-# Convert to bins
-data2015$FieldAcreage <- cut(data2015$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2015$FieldAcreage <- factor(data2015$FieldAcreage)
-
-# Do the same for the 2010 FieldAcreage
-# Convert to bins
-data2010$FieldAcreage <- cut(data2010$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2010$FieldAcreage <- factor(data2010$FieldAcreage)
-
-### Q08 is whether they had any forage crop acres ----
-# Change non-responses to NA
-data$GrowForage <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q08)
-# Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
-data$GrowForage <- ifelse (data$GrowForage == "Some annual forage crop acres" | data$GrowForage == "Some annual forage crop acres:", 100, 0) %>% as.numeric()
-
-# Do the same for 2015 forage growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2015$GrowForage <- ifelse (data2015$GrowForage == "Yes.", 100, 0) %>%
-              as.numeric()
-
-# Do the same for 2010 forage growing question
-# Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
-data2010$GrowForage <- ifelse (data2010$GrowForage == "Yes.", 100, 0) %>%
-              as.numeric()
-
-### Q08_2_o is forage crop acreage ----
-# These lines split it into bins for plotting
-# Remove missing data keys
-data$ForageAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
-data$ForageAcreage <- as.numeric(data$ForageAcreage)
-# Convert to bins
-data$ForageAcreage <- cut(data$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data$ForageAcreage <- factor(data$ForageAcreage)
-
-# Do the same for the 2015 ForageAcreage
-# Convert to bins
-data2015$ForageAcreage <- cut(data2015$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2015$ForageAcreage <- factor(data2015$ForageAcreage)
-
-# Do the same for the 2010 ForageAcreage
-# Convert to bins
-data2010$ForageAcreage <- cut(data2010$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
-data2010$ForageAcreage <- factor(data2010$ForageAcreage)
-
-### Q05aA Percent organic vegetable seed ----
-data$OGVegiSeed <- as.numeric(data$Q05aA)
-data2015$OGVegiSeed <- as.numeric(data2015$OGVegiSeed)
-data2010$OGVegiSeed <- as.numeric(data2010$OGVegiSeed)
-
-### Q06aA  Percent organic cover seed ----
-data$OGCoverSeed <- as.numeric(data$Q06aA)
-data2015$OGCoverSeed <- as.numeric(data2015$OGCoverSeed)
-# No data for cover
-
-### Q07aA  Percent organic field crop seed ----
-data$OGFieldSeed <- as.numeric(data$Q07aA)
-data2015$OGFieldSeed <- as.numeric(data2015$OGFieldSeed)
-data2010$OGFieldSeed <- as.numeric(data2010$OGFieldSeed)
-
-### Q08aA  Percent organic forage crop seed ----
-data$OGForageSeed <- as.numeric(data$Q08aA)
-data2015$OGForageSeed <- as.numeric(data2015$OGForageSeed)
-data2010$OGForageSeed <- as.numeric(data2010$OGForageSeed)
-
-### Q26B is what percentage of seed they got from seed they saved ----
-# Making a column to turn this into yes/no with 100 = yes, 0 = no
-data$SeedSourceOwn0or100 <- as.numeric(data$Q26B)
-data$SeedSourceOwn0or100 <- ifelse(!is.na(data$SeedSourceOwn) & data$SeedSourceOwn>0, 100, 0)
-
-data2015$SeedSourceOwn0or100 <- ifelse(!is.na(data2015$SeedSourceOwn) & data2015$SeedSourceOwn>0, 100, 0)
-
-data2010$SeedSourceOwn0or100 <- ifelse(!is.na(data2010$SeedSourceOwn) & data2010$SeedSourceOwn>0, 100, 0)
-
-### Q34 is Are you interested in producing organic seed for commercial use at some point in the future? ----
-# Change non-responses to NA
-# Order factors
-data$SeedInterest <- ifelse (data$Q34 == "No answer" | data$Q34 == "partial complete" | data$Q34 == "skipped due to branching", NA, data$Q34)
-data$SeedInterest <- factor(data$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
-
-# 2015 Seed Interest
-data2015$SeedInterest <- factor(data2015$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
-
-# 2010 Seed Interest question was asked differently, can't be included
-data2010 <- subset(data2010, select=-c(SeedInterest))
-
-### Q29A - Q29H are factors in producers' decision NOT to purchase organic seed ----
-# Drop 2010 data because the responses were framed differently
-data2010 <- subset(data2010, select=-c(NoOGSeedTreat ,NoOGSeedProcessor, NoOGSeedQuant, NoOGSeedSave, NoOGSeedQual, NoOGSeedPrice, NoOGSeedVar, NoOGSeedTrait))
-
-### 29A Lack of seed treatments, such as pelleting or priming ----
-# Change non-responses to NA
-data$NoOGSeedTreat <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedTreat <- factor(data$NoOGSeedTreat, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedTreat <- factor(data2015$NoOGSeedTreat, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedTreat <- revalue(data2015$NoOGSeedTreat, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29B Processor (buyer) requires or supplies varieties that are not available organically ----
-# Change non-responses to NA
-data$NoOGSeedProcessor <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedProcessor <- factor(data$NoOGSeedProcessor, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedProcessor <- factor(data2015$NoOGSeedProcessor, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedProcessor <- revalue(data2015$NoOGSeedProcessor, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29C Insufficient quantity of seed ----
-# Change non-responses to NA
-data$NoOGSeedQuant <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedQuant <- factor(data$NoOGSeedQuant, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedQuant <- factor(data2015$NoOGSeedQuant, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedQuant <- revalue(data2015$NoOGSeedQuant, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29D Save my own seed ----
-# Change non-responses to NA
-data$NoOGSeedSave <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedSave <- factor(data$NoOGSeedSave, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedSave <- factor(data2015$NoOGSeedSave, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedSave <- revalue(data2015$NoOGSeedSave, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29E Distrust of organic seed quality ----
-# Change non-responses to NA
-data$NoOGSeedQual <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedQual <- factor(data$NoOGSeedQual, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedQual <- factor(data2015$NoOGSeedQual, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedQual <- revalue(data2015$NoOGSeedQual, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29F Price ----
-# Change non-responses to NA
-data$NoOGSeedPrice <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedPrice <- factor(data$NoOGSeedPrice, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedPrice <- factor(data2015$NoOGSeedPrice, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedPrice <- revalue(data2015$NoOGSeedPrice, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29G Specific variety not available as organic seed ----
-# Change non-responses to NA
-data$NoOGSeedVar <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedVar <- factor(data$NoOGSeedVar, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedVar <- factor(data2015$NoOGSeedVar, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedVar <- revalue(data2015$NoOGSeedVar, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-### 29H Lack of desirable genetic traits ----
-# Change non-responses to NA
-data$NoOGSeedTrait <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
-# Order factors
-data$NoOGSeedTrait <- factor(data$NoOGSeedTrait, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
-
-# 2015 data
-# Order factors
-data2015$NoOGSeedTrait <- factor(data2015$NoOGSeedTrait, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
-
-# Rename to match 2020 data
-data2015$NoOGSeedTrait <- revalue(data2015$NoOGSeedTrait, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
-
-
-### Convert Respondent ID to factor ----
-data$RespID <- factor(data$RespID)
-
-###############################################################################
-###############################################################################
-### Create additional global variables ----
-
-# Add column of state abbreviations to data based on zipcode
-getzipcode <- zipcode$state
-names(getzipcode) <- zipcode$zip
-data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
-data2015$state <- unname(getzipcode[as.character(data2015[,"Zip1"])])
-data2010$state <- data2010$State
-
-# Create weight and survey object for survey based on current total population of organic producers (14,217 as of 2020)
-tot_pop <- 14217
-data$weight <- length(data$RespID) / tot_pop
-
-mydesign <- 
-  svydesign( 
-    ids = ~1 , 
-    data = data , 
-    weights = ~weight
-  )
-
-# Create weight and survey object for 2015 survey based on 2014 total population of organic producers (14,093)
-tot_pop2015 <- 14093
-data2015$weight <- length(data2015$RespondentID) / tot_pop
-
-mydesign2015 <- 
-  svydesign( 
-    ids = ~1 , 
-    data = data2015 , 
-    weights = ~weight
-  )
-
-# Create weight and survey object for 2015 survey based on 2014 total population of organic producers (14,093)
-tot_pop2010 <- 10903
-data2010$weight <- length(data2010$RespondentID) / tot_pop
-
-mydesign2010 <- 
-  svydesign( 
-    ids = ~1 , 
-    data = data2010 , 
-    weights = ~weight
-  )
-
-# Get sp type shape data for states
-# Add column of abbreviations
-data("us_states")
-us_states$state <- state.abb[match(us_states$NAME,state.name)]
-
-# Dropping HI and AK for now because it is so far from everything
-# Will need a way to incorperate eventually
-rownames(zipcode) <- zipcode$zip
-zipcode$zip <- as.character(zipcode$zip)
-data$zip <- data$Q04A
-zips <- left_join(data[,c("Q04A","zip")], zipcode, by = "zip")
-zips <- zips[zips$state != "HI",]
-zips <- zips[zips$state != "AK",]
-
-# 2015 zipcode wrangling
-data2015$zip <- as.character(data2015$Zip1)
-zips2015 <- left_join(data2015[,c("Zip1","zip")], zipcode, by = "zip")
-zips2015 <- zips2015[zips2015$state != "HI",]
-zips2015 <- zips2015[zips2015$state != "AK",]
-
-# No zipcode data for 2010
-
-
-# Get state data for gradient maps and convert to upper case
-# Add column of abbreviations
-states_map <- map_data("state")
-states_map$region <- str_to_title(states_map$region)
-states_map$state <- state.abb[match(states_map$region,state.name)]
+library(memoise)
+
+# zipcode <- read.csv("zipcode.csv", as.is = TRUE)
+# data <- read.csv("NORA19_merged.csv")
+# key <- read.csv("question_labels.csv")
+# data2015 <- read.csv("2015SurveyData.csv", skip=2, header=TRUE)
+# data2010 <- read.csv("2010SurveyData.csv", skip=2, header=TRUE)
+# 
+# # Constant to set plot heights in pixels
+# # Temporary fix until I can get a better dynamic plot sizing plan in place
+# PLOTHEIGHT <- 600
+# 
+# # Constant to set plot title wrapping
+# WRAPWIDTH <- 30
+# 
+# # Constant to set plot text size
+# BASESIZE <- 22
+# 
+# # Constant to set response label size
+# LABELSIZE <- 8
+# 
+# ### Color palettes 
+# # dummy variables to test
+# # input<- list()
+# # input$color_palette <- "default"
+# 
+# COLOR_PALETTE <- list()
+# 
+# COLOR_PALETTE$default <- list() 
+# COLOR_PALETTE$default$Y2020 <- "#2d677f"
+# COLOR_PALETTE$default$Y2015 <- "#da413d"
+# COLOR_PALETTE$default$Y2010 <- "#73853a"
+#   
+# COLOR_PALETTE$colorblind <- list() 
+# COLOR_PALETTE$colorblind$Y2020 <- "#f5793a"
+# COLOR_PALETTE$colorblind$Y2015 <- "#a95aa1"
+# COLOR_PALETTE$colorblind$Y2010 <- "#85c0f9"
+#   
+# COLOR_PALETTE$grayscale <- list() 
+# COLOR_PALETTE$grayscale$Y2020 <- "#ffffff"
+# COLOR_PALETTE$grayscale$Y2015 <- "#bbbbbb"
+# COLOR_PALETTE$grayscale$Y2010 <- "#666666"
+# 
+# ###############################################################################
+# ###############################################################################
+# ### Section for question data wrangling ----
+# 
+# ### Q01A is year farm first certified ----
+# # These lines tidy it up and split into bins for plotting
+# data$YearsCertified <- as.numeric(data$Q01A)
+# # Convert to years certified
+# data$YearsCertified <- 2020 - data$YearsCertified
+# # Convert to bins
+# data$YearsCertified_bin <- cut(data$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
+# data$YearsCertified_bin <- factor(data$YearsCertified_bin)
+# 
+# # 2015 tidy up
+# data2015$YearsCertified <- as.numeric(data2015$YearsCertified)
+# # 2015 Convert to bins
+# data2015$YearsCertified_bin <- cut(data2015$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
+# data2015$YearsCertified_bin <- factor(data2015$YearsCertified_bin)
+# 
+# # 2010 tidy up
+# data2010$YearsCertified <- as.numeric(data2010$YearsCertified)
+# # 2010 Convert to bins
+# data2010$YearsCertified_bin <- cut(data2010$YearsCertified, breaks=c(0,1,3,6,10,15,20,30,1000), labels=c("<1","1 - 3","4 - 6","7 - 10", "11 - 15", "16 - 20", "21 - 30", "30+"))
+# data2010$YearsCertified_bin <- factor(data2010$YearsCertified_bin)
+# 
+# ### Q05 is whether they had any veg acres ----
+# # Change non-responses to NA
+# data$GrowVegis <- ifelse (data$Q05 == "No answer" | data$Q05 == "partial complete" | data$Q05 == "skipped due to branching", NA, data$Q05)
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data$GrowVegis <- ifelse (data$GrowVegis == "Some Annual Vegetable Crop Acres" | data$GrowVegis == "Some annual vegetable crop acres:", 100, 0) %>%
+#               as.numeric()
+# 
+# # Do the same for 2015 veg growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2015$GrowVegis <- ifelse (data2015$GrowVegis == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# # Do the same for 2010 veg growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2010$GrowVegis <- ifelse (data2010$GrowVegis == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# ### Q05_2_o is vegetable acreage ----
+# # These lines split it into bins for plotting
+# # Remove missing data keys
+# data$VegiAcreage <- ifelse(!is.na(data$Q05_2_o) & (data$Q05_2_o == -1 | data$Q05_2_o == -2 | data$Q05_2_o == -3), NA, data$Q05_2_o)
+# data$VegiAcreage <- as.numeric(data$VegiAcreage)
+# # Convert to bins
+# data$VegiAcreage <- cut(data$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data$VegiAcreage <- factor(data$VegiAcreage)
+# 
+# # Do the same for the 2015 VegiAcreage
+# # Convert to bins
+# data2015$VegiAcreage <- cut(data2015$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2015$VegiAcreage <- factor(data2015$VegiAcreage)
+# 
+# # Do the same for the 2010 VegiAcreage
+# # Convert to bins
+# data2010$VegiAcreage <- cut(data2010$VegiAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2010$VegiAcreage <- factor(data2010$VegiAcreage)
+# 
+# ### Q06 is whether they had any cover crop acres ----
+# # Change non-responses to NA
+# data$GrowCover <- ifelse (data$Q06 == "No answer" | data$Q06 == "partial complete" | data$Q06 == "skipped due to branching", NA, data$Q06)
+# # Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
+# data$GrowCover <- ifelse (data$GrowCover == "Some cover crop/green pasture acres" | data$GrowCover == "Some Cover Crops/Green Pasture Acres", 100, 0) %>%
+#               as.numeric()
+# 
+# # Do the same for 2015 veg growing question
+# # Convert from text to numeric -- 100 for cover, 0 for not. Probably a better way to do this...
+# data2015$GrowCover <- ifelse (data2015$GrowCover == "Yes", 100, 0) %>%
+#               as.numeric()
+# 
+# # Cover crop not asked for 2010
+# 
+# ### Q06_2_o is cover crop acreage ----
+# # These lines split it into bins for plotting
+# # Remove missing data keys
+# data$CoverAcreage <- ifelse(!is.na(data$Q06_2_o) & (data$Q06_2_o == -1 | data$Q06_2_o == -2 | data$Q06_2_o == -3), NA, data$Q06_2_o)
+# data$CoverAcreage <- as.numeric(data$CoverAcreage)
+# # Convert to bins
+# data$CoverAcreage <- cut(data$CoverAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data$CoverAcreage <- factor(data$CoverAcreage)
+# 
+# # Do the same for the 2015 CoverAcreage
+# # Convert to bins
+# data2015$CoverAcreage <- cut(data2015$CoverAcres, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2015$CoverAcreage <- factor(data2015$CoverAcreage)
+# 
+# # Cover crop not asked for 2010
+# 
+# ### Q07 is whether they had any field crop acres ----
+# # Change non-responses to NA
+# data$GrowField <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q07)
+# # Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
+# data$GrowField <- ifelse (data$GrowField == "Some field crop acres" | data$GrowField == "Some field crop acres:", 100, 0) %>% as.numeric()
+# 
+# # Do the same for 2015 field growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2015$GrowField <- ifelse (data2015$GrowField == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# # Do the same for 2010 field growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2010$GrowField <- ifelse (data2010$GrowField == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# ### Q07_2_o is field crop acreage ----
+# # These lines split it into bins for plotting
+# # Remove missing data keys
+# data$FieldAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
+# data$FieldAcreage <- as.numeric(data$FieldAcreage)
+# # Convert to bins
+# data$FieldAcreage <- cut(data$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data$FieldAcreage <- factor(data$FieldAcreage)
+# 
+# # Do the same for the 2015 FieldAcreage
+# # Convert to bins
+# data2015$FieldAcreage <- cut(data2015$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2015$FieldAcreage <- factor(data2015$FieldAcreage)
+# 
+# # Do the same for the 2010 FieldAcreage
+# # Convert to bins
+# data2010$FieldAcreage <- cut(data2010$FieldAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2010$FieldAcreage <- factor(data2010$FieldAcreage)
+# 
+# ### Q08 is whether they had any forage crop acres ----
+# # Change non-responses to NA
+# data$GrowForage <- ifelse (data$Q07 == "No answer" | data$Q07 == "partial complete" | data$Q07 == "skipped due to branching", NA, data$Q08)
+# # Convert from text to numeric -- 100 for field, 0 for not. Probably a better way to do this...
+# data$GrowForage <- ifelse (data$GrowForage == "Some annual forage crop acres" | data$GrowForage == "Some annual forage crop acres:", 100, 0) %>% as.numeric()
+# 
+# # Do the same for 2015 forage growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2015$GrowForage <- ifelse (data2015$GrowForage == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# # Do the same for 2010 forage growing question
+# # Convert from text to numeric -- 100 for veg, 0 for not. Probably a better way to do this...
+# data2010$GrowForage <- ifelse (data2010$GrowForage == "Yes.", 100, 0) %>%
+#               as.numeric()
+# 
+# ### Q08_2_o is forage crop acreage ----
+# # These lines split it into bins for plotting
+# # Remove missing data keys
+# data$ForageAcreage <- ifelse(!is.na(data$Q07_2_o) & (data$Q07_2_o == -1 | data$Q07_2_o == -2 | data$Q07_2_o == -3), NA, data$Q07_2_o)
+# data$ForageAcreage <- as.numeric(data$ForageAcreage)
+# # Convert to bins
+# data$ForageAcreage <- cut(data$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data$ForageAcreage <- factor(data$ForageAcreage)
+# 
+# # Do the same for the 2015 ForageAcreage
+# # Convert to bins
+# data2015$ForageAcreage <- cut(data2015$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2015$ForageAcreage <- factor(data2015$ForageAcreage)
+# 
+# # Do the same for the 2010 ForageAcreage
+# # Convert to bins
+# data2010$ForageAcreage <- cut(data2010$ForageAcreage, breaks=c(0,3,10,50,80,160,480,1000000), labels=c("0.01 - 3","3.01 - 10","10.01 - 50","50.01 - 80", "80.01 - 160", "160.01 - 480", ">480"))
+# data2010$ForageAcreage <- factor(data2010$ForageAcreage)
+# 
+# ### Q05aA Percent organic vegetable seed ----
+# data$OGVegiSeed <- as.numeric(data$Q05aA)
+# data2015$OGVegiSeed <- as.numeric(data2015$OGVegiSeed)
+# data2010$OGVegiSeed <- as.numeric(data2010$OGVegiSeed)
+# 
+# ### Q06aA  Percent organic cover seed ----
+# data$OGCoverSeed <- as.numeric(data$Q06aA)
+# data2015$OGCoverSeed <- as.numeric(data2015$OGCoverSeed)
+# # No data for cover
+# 
+# ### Q07aA  Percent organic field crop seed ----
+# data$OGFieldSeed <- as.numeric(data$Q07aA)
+# data2015$OGFieldSeed <- as.numeric(data2015$OGFieldSeed)
+# data2010$OGFieldSeed <- as.numeric(data2010$OGFieldSeed)
+# 
+# ### Q08aA  Percent organic forage crop seed ----
+# data$OGForageSeed <- as.numeric(data$Q08aA)
+# data2015$OGForageSeed <- as.numeric(data2015$OGForageSeed)
+# data2010$OGForageSeed <- as.numeric(data2010$OGForageSeed)
+# 
+# ### Q26B is what percentage of seed they got from seed they saved ----
+# # Making a column to turn this into yes/no with 100 = yes, 0 = no
+# data$SeedSourceOwn0or100 <- as.numeric(data$Q26B)
+# data$SeedSourceOwn0or100 <- ifelse(!is.na(data$SeedSourceOwn) & data$SeedSourceOwn>0, 100, 0)
+# 
+# data2015$SeedSourceOwn0or100 <- ifelse(!is.na(data2015$SeedSourceOwn) & data2015$SeedSourceOwn>0, 100, 0)
+# 
+# data2010$SeedSourceOwn0or100 <- ifelse(!is.na(data2010$SeedSourceOwn) & data2010$SeedSourceOwn>0, 100, 0)
+# 
+# ### Q34 is Are you interested in producing organic seed for commercial use at some point in the future? ----
+# # Change non-responses to NA
+# # Order factors
+# data$SeedInterest <- ifelse (data$Q34 == "No answer" | data$Q34 == "partial complete" | data$Q34 == "skipped due to branching", NA, data$Q34)
+# data$SeedInterest <- factor(data$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
+# 
+# # 2015 Seed Interest
+# data2015$SeedInterest <- factor(data2015$SeedInterest, levels = c("Not interested", "Somewhat interested", "Interested", "Very interested"))
+# 
+# # 2010 Seed Interest question was asked differently, can't be included
+# data2010 <- subset(data2010, select=-c(SeedInterest))
+# 
+# ### Q29A - Q29H are factors in producers' decision NOT to purchase organic seed ----
+# # Drop 2010 data because the responses were framed differently
+# data2010 <- subset(data2010, select=-c(NoOGSeedTreat ,NoOGSeedProcessor, NoOGSeedQuant, NoOGSeedSave, NoOGSeedQual, NoOGSeedPrice, NoOGSeedVar, NoOGSeedTrait))
+# 
+# ### 29A Lack of seed treatments, such as pelleting or priming ----
+# # Change non-responses to NA
+# data$NoOGSeedTreat <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedTreat <- factor(data$NoOGSeedTreat, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedTreat <- factor(data2015$NoOGSeedTreat, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedTreat <- revalue(data2015$NoOGSeedTreat, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29B Processor (buyer) requires or supplies varieties that are not available organically ----
+# # Change non-responses to NA
+# data$NoOGSeedProcessor <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedProcessor <- factor(data$NoOGSeedProcessor, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedProcessor <- factor(data2015$NoOGSeedProcessor, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedProcessor <- revalue(data2015$NoOGSeedProcessor, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29C Insufficient quantity of seed ----
+# # Change non-responses to NA
+# data$NoOGSeedQuant <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedQuant <- factor(data$NoOGSeedQuant, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedQuant <- factor(data2015$NoOGSeedQuant, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedQuant <- revalue(data2015$NoOGSeedQuant, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29D Save my own seed ----
+# # Change non-responses to NA
+# data$NoOGSeedSave <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedSave <- factor(data$NoOGSeedSave, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedSave <- factor(data2015$NoOGSeedSave, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedSave <- revalue(data2015$NoOGSeedSave, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29E Distrust of organic seed quality ----
+# # Change non-responses to NA
+# data$NoOGSeedQual <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedQual <- factor(data$NoOGSeedQual, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedQual <- factor(data2015$NoOGSeedQual, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedQual <- revalue(data2015$NoOGSeedQual, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29F Price ----
+# # Change non-responses to NA
+# data$NoOGSeedPrice <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedPrice <- factor(data$NoOGSeedPrice, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedPrice <- factor(data2015$NoOGSeedPrice, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedPrice <- revalue(data2015$NoOGSeedPrice, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29G Specific variety not available as organic seed ----
+# # Change non-responses to NA
+# data$NoOGSeedVar <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedVar <- factor(data$NoOGSeedVar, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedVar <- factor(data2015$NoOGSeedVar, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedVar <- revalue(data2015$NoOGSeedVar, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# ### 29H Lack of desirable genetic traits ----
+# # Change non-responses to NA
+# data$NoOGSeedTrait <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# # Order factors
+# data$NoOGSeedTrait <- factor(data$NoOGSeedTrait, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
+# 
+# # 2015 data
+# # Order factors
+# data2015$NoOGSeedTrait <- factor(data2015$NoOGSeedTrait, levels = c("Not a reason", "Slight reason", "Moderate reason", "Significant reason"))
+# 
+# # Rename to match 2020 data
+# data2015$NoOGSeedTrait <- revalue(data2015$NoOGSeedTrait, c("Not a reason"="Not a factor", "Slight reason"="Slight factor", "Moderate reason"="Moderate factor", "Significant reason"="Significant factor"))
+# 
+# 
+# ### Convert Respondent ID to factor ----
+# data$RespID <- factor(data$RespID)
+# 
+# ###############################################################################
+# ###############################################################################
+# ### Create additional global variables ----
+# 
+# # Add column of state abbreviations to data based on zipcode
+# getzipcode <- zipcode$state
+# names(getzipcode) <- zipcode$zip
+# data$state <- unname(getzipcode[as.character(data[,"Q04A"])])
+# data2015$state <- unname(getzipcode[as.character(data2015[,"Zip1"])])
+# data2010$state <- data2010$State
+# 
+# # Create weight and survey object for survey based on current total population of organic producers (14,217 as of 2020)
+# tot_pop <- 14217
+# data$weight <- length(data$RespID) / tot_pop
+# 
+# mydesign <- 
+#   svydesign( 
+#     ids = ~1 , 
+#     data = data , 
+#     weights = ~weight
+#   )
+# 
+# # Create weight and survey object for 2015 survey based on 2014 total population of organic producers (14,093)
+# tot_pop2015 <- 14093
+# data2015$weight <- length(data2015$RespondentID) / tot_pop
+# 
+# mydesign2015 <- 
+#   svydesign( 
+#     ids = ~1 , 
+#     data = data2015 , 
+#     weights = ~weight
+#   )
+# 
+# # Create weight and survey object for 2015 survey based on 2014 total population of organic producers (14,093)
+# tot_pop2010 <- 10903
+# data2010$weight <- length(data2010$RespondentID) / tot_pop
+# 
+# mydesign2010 <- 
+#   svydesign( 
+#     ids = ~1 , 
+#     data = data2010 , 
+#     weights = ~weight
+#   )
+# 
+# # Get sp type shape data for states
+# # Add column of abbreviations
+# data("us_states")
+# us_states$state <- state.abb[match(us_states$NAME,state.name)]
+# 
+# # Dropping HI and AK for now because it is so far from everything
+# # Will need a way to incorperate eventually
+# rownames(zipcode) <- zipcode$zip
+# zipcode$zip <- as.character(zipcode$zip)
+# data$zip <- data$Q04A
+# zips <- left_join(data[,c("Q04A","zip")], zipcode, by = "zip")
+# zips <- zips[zips$state != "HI",]
+# zips <- zips[zips$state != "AK",]
+# 
+# # 2015 zipcode wrangling
+# data2015$zip <- as.character(data2015$Zip1)
+# zips2015 <- left_join(data2015[,c("Zip1","zip")], zipcode, by = "zip")
+# zips2015 <- zips2015[zips2015$state != "HI",]
+# zips2015 <- zips2015[zips2015$state != "AK",]
+# 
+# # No zipcode data for 2010
+# 
+# 
+# # Get state data for gradient maps and convert to upper case
+# # Add column of abbreviations
+# states_map <- map_data("state")
+# states_map$region <- str_to_title(states_map$region)
+# states_map$state <- state.abb[match(states_map$region,state.name)]
+# 
+# ### Load data prep from file to speed up initialization ----
+# save.image(file = "SOS.rda")
+load("SOS.rda")
 
 ### Scratch code -- mapping code experiments
 # states <- ne_states(country = "united states of america", returnclass = "sf")
@@ -587,7 +592,7 @@ states_map$state <- state.abb[match(states_map$region,state.name)]
 ### Graphing functions ----
 
 ### Function to generate map based on producer zip and selected states ----
-MapPlot <- function (input) {
+MapPlot_internal <- function (input) {
   
   # Avoid red error message when nothing is selected for input$state by validating
   validate(need(input$state, 'Please choose a state.'))
@@ -655,8 +660,11 @@ plot (p)
    
 }
 
+# External function with caching
+MapPlot <- memoise(MapPlot_internal, cache = getShinyOption("cache"))
+
 ### Function to make box plots of question means and errors ----
-BoxPlot <- function (input, question, title, xlab, ylab) {
+BoxPlot_internal <- function (input, question, title, xlab, ylab) {
   
   # dummy variables for testing
   # input <- list()
@@ -836,9 +844,12 @@ BoxPlot <- function (input, question, title, xlab, ylab) {
   plot(p)
 
 }
-      
+
+# External function with caching
+BoxPlot <- memoise(BoxPlot_internal, cache = getShinyOption("cache"))
+     
 ### Function to make box plot for responses that can be split into bins ----
-BinPlot <- function (input, question, title, xlab, ylab) {
+BinPlot_internal <- function (input, question, title, xlab, ylab) {
   
 # dummy variables for testing
 # input <- list()
@@ -986,8 +997,12 @@ BinPlot <- function (input, question, title, xlab, ylab) {
   
 }
 
+# External function with caching
+BinPlot <- memoise(BinPlot_internal, cache = getShinyOption("cache"))
+
+
 ### Function to make gradient maps  ----
-GradientMap <- function (input, question, title, catlab, year) {
+GradientMap_internal <- function (input, question, title, catlab, year) {
 
   # dummy data for testing
   #  input <- list()
@@ -1073,6 +1088,10 @@ GradientMap <- function (input, question, title, catlab, year) {
   plot(p)
 
 }
+
+# External function with caching
+GradientMap <- memoise(GradientMap_internal, cache = getShinyOption("cache"))
+
 
 ## Scratch code for interactive map
   # ggplot() + 
