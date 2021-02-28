@@ -87,24 +87,24 @@ library(memoise)
 # # Constant to set response label size
 # LABELSIZE <- 8
 # 
-# ### Color palettes 
+# ### Color palettes
 # # dummy variables to test
 # # input<- list()
 # # input$color_palette <- "default"
 # 
 # COLOR_PALETTE <- list()
 # 
-# COLOR_PALETTE$default <- list() 
+# COLOR_PALETTE$default <- list()
 # COLOR_PALETTE$default$Y2020 <- "#2d677f"
 # COLOR_PALETTE$default$Y2015 <- "#da413d"
 # COLOR_PALETTE$default$Y2010 <- "#73853a"
-#   
-# COLOR_PALETTE$colorblind <- list() 
+# 
+# COLOR_PALETTE$colorblind <- list()
 # COLOR_PALETTE$colorblind$Y2020 <- "#f5793a"
 # COLOR_PALETTE$colorblind$Y2015 <- "#a95aa1"
 # COLOR_PALETTE$colorblind$Y2010 <- "#85c0f9"
-#   
-# COLOR_PALETTE$grayscale <- list() 
+# 
+# COLOR_PALETTE$grayscale <- list()
 # COLOR_PALETTE$grayscale$Y2020 <- "#ffffff"
 # COLOR_PALETTE$grayscale$Y2015 <- "#bbbbbb"
 # COLOR_PALETTE$grayscale$Y2010 <- "#666666"
@@ -330,7 +330,7 @@ library(memoise)
 # 
 # ### 29B Processor (buyer) requires or supplies varieties that are not available organically ----
 # # Change non-responses to NA
-# data$NoOGSeedProcessor <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedProcessor <- ifelse (data$Q29B == "No answer" | data$Q29B == "partial complete" | data$Q29B == "skipped due to branching", NA, data$Q29B)
 # # Order factors
 # data$NoOGSeedProcessor <- factor(data$NoOGSeedProcessor, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -343,7 +343,7 @@ library(memoise)
 # 
 # ### 29C Insufficient quantity of seed ----
 # # Change non-responses to NA
-# data$NoOGSeedQuant <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedQuant <- ifelse (data$Q29C == "No answer" | data$Q29C == "partial complete" | data$Q29C == "skipped due to branching", NA, data$Q29C)
 # # Order factors
 # data$NoOGSeedQuant <- factor(data$NoOGSeedQuant, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -356,7 +356,7 @@ library(memoise)
 # 
 # ### 29D Save my own seed ----
 # # Change non-responses to NA
-# data$NoOGSeedSave <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedSave <- ifelse (data$Q29D == "No answer" | data$Q29D == "partial complete" | data$Q29D == "skipped due to branching", NA, data$Q29D)
 # # Order factors
 # data$NoOGSeedSave <- factor(data$NoOGSeedSave, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -369,7 +369,7 @@ library(memoise)
 # 
 # ### 29E Distrust of organic seed quality ----
 # # Change non-responses to NA
-# data$NoOGSeedQual <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedQual <- ifelse (data$Q29E == "No answer" | data$Q29E == "partial complete" | data$Q29E == "skipped due to branching", NA, data$Q29E)
 # # Order factors
 # data$NoOGSeedQual <- factor(data$NoOGSeedQual, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -382,7 +382,7 @@ library(memoise)
 # 
 # ### 29F Price ----
 # # Change non-responses to NA
-# data$NoOGSeedPrice <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedPrice <- ifelse (data$Q29F == "No answer" | data$Q29F == "partial complete" | data$Q29F == "skipped due to branching", NA, data$Q29F)
 # # Order factors
 # data$NoOGSeedPrice <- factor(data$NoOGSeedPrice, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -395,7 +395,7 @@ library(memoise)
 # 
 # ### 29G Specific variety not available as organic seed ----
 # # Change non-responses to NA
-# data$NoOGSeedVar <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedVar <- ifelse (data$Q29G == "No answer" | data$Q29G == "partial complete" | data$Q29G == "skipped due to branching", NA, data$Q29G)
 # # Order factors
 # data$NoOGSeedVar <- factor(data$NoOGSeedVar, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -408,7 +408,7 @@ library(memoise)
 # 
 # ### 29H Lack of desirable genetic traits ----
 # # Change non-responses to NA
-# data$NoOGSeedTrait <- ifelse (data$Q29A == "No answer" | data$Q29A == "partial complete" | data$Q29A == "skipped due to branching", NA, data$Q29A)
+# data$NoOGSeedTrait <- ifelse (data$Q29H == "No answer" | data$Q29H == "partial complete" | data$Q29H == "skipped due to branching", NA, data$Q29H)
 # # Order factors
 # data$NoOGSeedTrait <- factor(data$NoOGSeedTrait, levels = c("Not a factor", "Slight factor", "Moderate factor", "Significant factor"))
 # 
@@ -438,10 +438,10 @@ library(memoise)
 # tot_pop <- 14217
 # data$weight <- length(data$RespID) / tot_pop
 # 
-# mydesign <- 
-#   svydesign( 
-#     ids = ~1 , 
-#     data = data , 
+# mydesign <-
+#   svydesign(
+#     ids = ~1 ,
+#     data = data ,
 #     weights = ~weight
 #   )
 # 
@@ -449,10 +449,10 @@ library(memoise)
 # tot_pop2015 <- 14093
 # data2015$weight <- length(data2015$RespondentID) / tot_pop
 # 
-# mydesign2015 <- 
-#   svydesign( 
-#     ids = ~1 , 
-#     data = data2015 , 
+# mydesign2015 <-
+#   svydesign(
+#     ids = ~1 ,
+#     data = data2015 ,
 #     weights = ~weight
 #   )
 # 
@@ -460,10 +460,10 @@ library(memoise)
 # tot_pop2010 <- 10903
 # data2010$weight <- length(data2010$RespondentID) / tot_pop
 # 
-# mydesign2010 <- 
-#   svydesign( 
-#     ids = ~1 , 
-#     data = data2010 , 
+# mydesign2010 <-
+#   svydesign(
+#     ids = ~1 ,
+#     data = data2010 ,
 #     weights = ~weight
 #   )
 # 
