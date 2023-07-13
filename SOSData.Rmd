@@ -1,0 +1,2197 @@
+---
+title: State of Organic Seed Data
+resource_files:
+- www/cropped-logo-header.png
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    #source_code: embed
+    storyboard: true
+    orientation: columns
+    vertical_layout: fill
+    logo: www/logo.png
+    theme: 
+      version: 4
+      #bg: "#90A7B1"
+      #fg: "#D3D3D3" 
+      #primary: "#D3D3D3"
+      navbar-bg: "#4E7C8F"
+      base_font: Hind
+        #google: Prompt
+      heading_font:
+        google: Hind
+      code_font:
+        google: 
+          # arguments to sass::font_google() 
+          family: JetBrains Mono
+          local: false
+---
+
+```{css, echo=FALSE}
+h1{font-size:18px;}
+h2{font-size:16px;}
+.title {
+  background-color: #2d677f;
+  color:#ffffff;
+  padding-right: 200px;
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+
+.box {
+  padding: 1em;
+  background: white;
+  border: 2px solid black;
+  border-radius: 10px;
+}
+
+.storyboard-nav .sbframelist .li {
+  background: #90A7B1
+  font-size: 16px;
+}
+
+```
+
+<script>
+var navbar = $('#navbar');
+        navbar.on("click", "a[data-toggle!=dropdown]", null, function () {
+//           alert($(this).attr('href'));
+           Shiny.setInputValue("active_tab", $(this).attr('href'));
+        });
+</script>
+
+```{r message=FALSE, warning=FALSE, include=FALSE, cache=TRUE, context="setup"}
+
+# install packages and prep data
+source("setup.R")
+source("setup_liza.R")
+
+# custom graph functions
+source("functions.R")
+source("functions_researcher.R")
+source("functions_seedproducer.R")
+source("functions_network.R")
+source("functions_funding.R")
+
+# Set default font to Hind. It wasn't working when I put this in the setup file...
+font_add_google(name = "Hind", family = "Hind")
+showtext_auto()
+
+```
+
+
+Filter {.sidebar data-width=300}
+=====================================
+```{r}
+
+renderUI({
+   sel <- input$active_tab
+
+   if (is.null(sel) || sel == "#section-introduction") {
+    tagList(
+      tags$br(""),
+      tags$p("For most of this site, this sidebar will contain menus and buttons that will allow you to filter through the data and adjust the appearance of the figures."),
+      tags$b("The figures are calculated and created in real-time. Depending on the number of users connecting to the data explorer, there may be a slight delay in displaying some figures.")
+      
+      
+      )} else if  (sel == "#section-farm-demographics"
+                    || sel == "#section-producer-types"
+                    || sel == "#section-organic-vegetable-seed-usage"
+                    || sel == "#section-organic-cover-crop-seed-usage"
+                    || sel == "#section-organic-field-crop-seed-usage" 
+                    || sel == "#section-organic-forage-crop-seed-usage"             
+                    || sel == "#section-organic-seed-usage"
+                    || sel == "#change-in-organic-seed-usage" 
+                    || sel == "#section-seed-sources"
+                    || sel == "#section-certifier-involvement-with-organic-seed-use"
+                    || sel == "#section-organic-seed-production"
+                    || sel == "#section-factors-in-not-purchasing-organic-seed"
+                    || sel == "#section-opinions-on-genetic-engineering-and-organic-seeds"
+                    || sel == "#section-organic-breeding-needs") {
+    tagList(
+      
+      selectInput("state", "State:", choices=c("All",sort(unique(data$state))), 
+                  selected="All", multiple=TRUE),
+      checkboxInput("Y2021", "Display 2021 Data", TRUE),
+      checkboxInput("Y2016", "Display 2016 Data", TRUE),
+      checkboxInput("Y2011", "Display 2011 Data", TRUE),
+      radioButtons("crop_type", "Crop Types Grown:",
+                 c("All" = "all",
+                   "Vegetables and Other Crops" = "has_veg",
+                   "Only Vegetables" = "only_veg",
+                   "Field Crops and Other Crops" = "has_field",
+                   "Only Field Crops" = "only_field",
+                   "Forage Crops and Other Crops" = "has_forage",
+                   "Only Forage Crops" = "only_forage")),
+      
+      selectInput("crop_size", "Farm Size (Acres):", choices=c(
+                  "All",
+                  "0.01 - 3",
+                  "3.01 - 10",
+                  "10.01 - 50",
+                  "50.01 - 80",
+                  "80.01 - 160",
+                  "160.01 - 480",
+                  ">480"), selected="All", multiple=TRUE),
+      
+      checkboxInput("show_n", "Display response numbers", FALSE),
+      checkboxInput("show_title", "Display title in figure", TRUE),
+  
+      radioButtons("color_palette", "Color Palette:",
+                 c("Default" = "default",
+                   "Colorblind friendly" = "colorblind",
+                   "Grayscale" = "grayscale"))
+      
+    )} else if  (sel == "#section-additional-figures") {
+    tagList(
+      
+      checkboxInput("show_title", "Display title in figure", TRUE),
+  
+      radioButtons("color_palette", "Color Palette:",
+                 c("Default" = "default",
+                   "Colorblind friendly" = "colorblind",
+                   "Grayscale" = "grayscale"))
+      
+    )} else if ( sel == "#section-seed-producer-demographics"
+                    || sel == "#section-challenges"
+                    || sel == "#section-seed-producer-perspectives") {
+    tagList(
+      tags$br(""),
+      tags$p("Use the following filters to explore the organic seed producer results. You can hover over figures to get more detail about the data. Note that not all graphs, such as the map, will not adjust with filters."),
+      
+      selectInput("region_p", "Region:", 
+           choices=c("All",sort(unique(df.p.slim$Region))[-c(1,3)]), 
+           selected="All", multiple=F),
+
+      selectInput("activity_p", "Seed-related activities:", 
+            choices=c("All",
+                      "Seed breeding & production only" = "Producer only",
+                      "Seed production & retail" = "Producer & Retailer"),
+            selected="All", multiple=F),
+
+            selectInput("crop_type_p", "Crop types:", choices=c("All",
+                                                  "Vegetables" = "cropcat_veg",
+                                                  "Ornamentals" = "cropcat_orn",
+                                                  "Grains" = "cropcat_grain",
+                                                  "Potato/prop." = "cropcat_propogules",
+                                                  "Field" = "cropcat_field",
+                                                  "Forage" = "cropcat_forage",
+                                                  "Herbs" = "cropcat_herbs"), 
+            selected="All", multiple=F),
+
+      radioButtons("color_palette_p", "Color Palette:",
+                 c("Default" = "default",
+                   "Colorblind friendly" = "colorblind",
+                   "Grayscale" = "grayscale"))
+      
+    )} else if ( sel == "#section-funding") {
+    tagList(
+      
+      tags$br(""),
+      tags$p("Use the following filters to explore the organic research project funding results. You can hover over figures to get more detail about the data."),
+      
+      selectInput("region_f", "Region:", 
+           choices=c("All",sort(unique(df.f$location))), 
+           selected="All", multiple=F),
+
+      selectInput("crop_f", "Crop types:", c("All", sort(unique(df.f$proj_crop))), 
+            selected="All", multiple=F),
+      
+      checkboxInput("1996-2016", "1996-2016", TRUE),
+      checkboxInput("2017-2021", "2017-2021", TRUE),
+
+      radioButtons("color_palette_f", "Color Palette:",
+                 c("Default" = "default",
+                   "Colorblind friendly" = "colorblind",
+                   "Grayscale" = "grayscale"))
+      
+    )} else if (sel == "#section-researcher-demographics"
+                    #|| sel == "#section-researcher-profile"
+                    || sel == "#section-project-outcomes"
+                    || sel == "#section-researcher-perspectives") {
+    tagList(
+      
+      tags$br(""),
+      tags$p("Use the following filters to explore the organic seed researcher results. You can hover over figures to get more detail about the data. Note that not all graphs, such as the map, will not adjust with filters."),
+      
+      selectInput("region_r", "Region:", 
+           choices=c("All",sort(unique(df.r$Region))[-c(1)]), 
+           selected="All", multiple=F),
+
+      selectInput("crop_type_r", "Crop types:", 
+                  choices=c("All", unique(c(df.r.long$crop_type))), 
+            selected="All", multiple=F),
+      
+      radioButtons("color_palette_r", "Color Palette:",
+                 c("Default" = "default",
+                   "Colorblind friendly" = "colorblind",
+                   "Grayscale" = "grayscale"))
+    )} else if (sel == "#section-seed-network") {
+    tagList(
+      tags$br(""),
+      tags$p("Seeds systems are complex networks that involve a wide range of actors, many of which are represented through the surveys in this report. The networks and related tables to the right depict the actors in the organic seed network, spatially fixed in the first network image and abstracted in the second, to show how they are connected."),
+      tags$p("Use the following filters to explore the organic seed network. Note that the first map will not adjust with filters."),
+      
+      selectInput("region_n", "Region:", 
+            choices=c("All",sort(unique(nodes$Region))[-c(1,3,6)]), 
+            selected="All", multiple=F),
+
+      selectInput("net_type", "Connection type:", 
+            choices=c("All",
+                      "Information & research" = "education",
+                      "Supply chain connections" = "operation",
+                      "Genetic material movement" = "genetic"),
+            selected="All", multiple=F)
+      
+    )} else {
+     
+    }
+})
+```
+
+Introduction 
+=====================================
+
+### Welcome
+
+<center><img src="www/large_logo.png"></center>
+
+<p style="font-size:20px;text-align: center">Welcome to the State of Organic Seed interactive data explorer</p>
+
+State of Organic Seed is a project of Organic Seed Alliance that monitors the status of organic seed in the US and provides a roadmap for increasing the diversity, quality, and integrity of organic seed available. The State of Organic Seed Report, 2022, is available <b><a href="https://stateoforganicseed.org/">here</a></b>.
+
+In 2019-2021, we conducted a series of national surveys of certified organic stakeholders: crop growers, seed producers, companies, and researchers. In these surveys we asked about their operations, various attitudes and perceptions around organic seed, their current use of organic seed, and any challenges related to their work with organic seed (e.g. obstacles that restrict organic seed sourcing or production), and priorities and successes of their work. Many additional topics were covered in this survey. To measure progress over the last five and ten years, we asked many of the same questions posed in surveys from 2011 and 2016. Further detail on the data collection can be found in the <b><a href="https://stateoforganicseed.org/#methods">Methods section</a></b> of the State of Organic Seed Report, 2022.
+
+This interactive data page presents, in graphical form, the results of the various organic seed stakeholder surveys. Each survey group has a tab at the top of the page, with detailed responses to questions. For each survey group, you can use the filter bar on the left to investigate survey responses by state/region, crop type, and other respondent identifiers.
+
+The organic grower survey was conducted in conjunction with the Organic Farming Research Foundation with funding by the USDA Organic Research and Education Initiative. The organic producer and researcher surveys were supported by the Western Sustainable Agriculture Research and Extension Program.  
+
+Questions or comments about the data explorer? Email Jared Zystro at jared@seedalliance.org
+
+<p style="font-size:8px">This material is based upon work that is supported by the National Institute of Food and Agriculture, U.S. Department of Agriculture, under award number 2019-38640-29880 through the Western Sustainable Agriculture Research and Education program under project number GW20-216. USDA is an equal opportunity employer and service provider.  Any opinions, findings, conclusions, or recommendations expressed in this publication are those of the author(s) and do not necessarily reflect the view of the U.S. Department of Agriculture.</p>
+
+Farm Demographics {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Farm Locations
+
+```{r}
+plotOutput("Map")
+```
+
+```{r, context="server", Map,  echo=FALSE}
+
+output$Map <- renderPlot({
+      
+      MapPlot (input = input)
+      
+    })  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Farm Regions
+
+```{r}
+plotOutput("Regions")
+```
+
+```{r, context="server", Regions,  echo=FALSE}
+output$Regions <- renderPlot({
+    GradientMap (input = input, question = "RegionTotal", title = "Regions", catlab =  "Number of Respondents", year = "2021")
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+
+```
+
+### Year Certified 
+
+```{r}
+plotOutput("Years")
+```
+
+```{r, context="server", Years, echo=FALSE}
+output$Years <-  renderPlot({
+  
+BinPlot (input = input, question = "YearsCertified_bin", title = "Years Certified", xlab = XLabel(input,"Years certified"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+Producer Types {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Vegetable Producer 
+
+```{r}
+plotOutput("VegProducer")
+```
+
+```{r, context="server", VegProducer, echo=FALSE}
+output$VegProducer <- renderPlot({
+  
+BoxPlot (input = input, question = "GrowVegis", title = "Percentage of Respondents who Produce Vegetables", xlab = "", ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Vegetable Acreage
+
+```{r}
+plotOutput("VegAcre")
+```
+
+```{r, context="server", VegAcre, echo=FALSE}
+output$VegAcre <- renderPlot({
+  
+BinPlot (input = input, question = "VegiAcreageBins", title = "Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Cover Crop Producer
+
+```{r}
+plotOutput("CoverProducer")
+```
+
+```{r, context="server", CoverProducer, echo=FALSE}
+output$CoverProducer <- renderPlot({
+  
+BoxPlot (input = input, question = "GrowCover", title = "Percentage of Respondents who Produce Cover Crops or Green Pasture", xlab = "", ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Cover Crop Acreage
+
+```{r}
+plotOutput("CoverAcre")
+```
+
+```{r, context="server", CoverAcre, echo=FALSE}
+output$CoverAcre <- renderPlot({
+  
+BinPlot (input = input, question = "CoverAcreageBins", title = "Cover Crop Acreage", xlab = XLabel(input, "Cover crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Field Crop Producer
+
+```{r}
+plotOutput("FieldProducer")
+```
+
+```{r, context="server", FieldProducer, echo=FALSE}
+output$FieldProducer <-  renderPlot({
+  
+BoxPlot (input = input, question = "GrowField", title = "Percentage of Respondents who Produce Field Crops", xlab = "", ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Field Crop Acreage
+
+```{r}
+plotOutput("FieldAcre")
+```
+
+```{r, context="server", FieldAcre, echo=FALSE}
+output$FieldAcre <- renderPlot({
+  
+BinPlot (input = input, question = "FieldAcreageBins", title = "Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Forage Crop Producer
+
+```{r}
+plotOutput("ForageProducer")
+```
+
+```{r, context="server", ForageProducer, echo=FALSE}
+output$ForageProducer <- renderPlot({
+  
+BoxPlot (input = input, question = "GrowForage", title = "Percentage of Respondents who Produce Forage Crops", xlab = "", ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Forage Crop Acreage
+
+```{r}
+plotOutput("ForageAcre")
+```
+
+```{r, context="server", ForageAcre, echo=FALSE}
+output$ForageAcre <- renderPlot({
+  
+BinPlot (input = input, question = "ForageAcreageBins", title = "Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+Organic Vegetable Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Overall Vegetable Seed Use
+  
+```{r}
+plotOutput("VegOGSeed")
+```
+
+```{r, context="server", VegOGSeed, echo=FALSE}
+output$VegOGSeed <- renderPlot({
+  
+BoxPlot (input = input, question = "OGVegiSeed", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Range of Vegetable Seed Use
+
+```{r}
+plotOutput("OGVegiSeedBins")
+```
+
+```{r, context="server", OGVegiSeedBins, echo=FALSE}
+output$OGVegiSeedBins <- renderPlot({
+  
+  BinPlot (input = input, question = "OGVegiSeedBins", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = XLabel(input, "Percentage of vegetable acreage planted to organic seed"), ylab = "Percentage of repondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Vegetable Seed Use by Vegetable Acreage
+  
+```{r}
+plotOutput("VegOGSeedByAcreage")
+```
+
+```{r, context="server", VegOGSeedByAcreage, echo=FALSE}
+output$VegOGSeedByAcreage <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "OGVegiSeed", title = "Percent Vegetable Acreage Planted To Organic Seed", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2021 Vegetable Seed Use
+
+```{r}
+# Need to figure out how to hide the chunks if the map is not displayed
+plotOutput("OGVegiSeedMap2021")
+```
+
+```{r, context="server", OGVegiSeedMap2021, echo=FALSE}
+
+output$OGVegiSeedMap2021 <- renderPlot({
+  if (input$Y2021) {
+    GradientMap (input = input, question = "OGVegiSeed", title = "2021 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2021")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2016 Vegetable Seed Use
+
+```{r}
+plotOutput("OGVegiSeedMap2016")
+```
+
+```{r, context="server", OGVegiSeedMap2016, echo=FALSE}
+
+output$OGVegiSeedMap2016 <- renderPlot({
+  if (input$Y2016) {
+    GradientMap (input = input, question = "OGVegiSeed", title = "2016 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2016")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2011 Vegetable Seed Use
+
+```{r}
+plotOutput("OGVegiSeedMap2011")
+```
+
+```{r, context="server", OGVegiSeedMap2011, echo=FALSE}
+output$OGVegiSeedMap2011 <- renderPlot({
+  if (input$Y2011) {
+    GradientMap (input = input, question = "OGVegiSeed", title = "2011 Percent Vegetable Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2011")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Organic Cover Crop Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Cover Crop Seed Use
+
+```{r}
+plotOutput("CoverOGSeed")
+```
+
+```{r, context="server", CoverOGSeed, echo=FALSE}
+output$CoverOGSeed <- renderPlot({
+  BoxPlot (input = input, question = "OGCoverSeed", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = XLabel(input, "Cover crop acreage"), ylab = "Percentage")
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Range of Cover Crop Seed Use
+
+```{r}
+plotOutput("OGCoverSeedBins")
+```
+
+```{r, context="server", OGCoverSeedBins, echo=FALSE}
+output$OGCoverSeedBins <- renderPlot({
+  
+  BinPlot (input = input, question = "OGCoverSeedBins", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Percentage of cover crop acreage planted to organic seed"), ylab = "Percentage of repondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Cover Crop Seed Use by Cover Crop Acreage
+  
+```{r}
+plotOutput("CoverOGSeedByAcreage")
+```
+
+```{r, context="server", CoverOGSeedByAcreage, echo=FALSE}
+output$CoverOGSeedByAcreage <- renderPlot({
+  
+CatPlot (input = input, category = "CoverAcreageBins", question = "OGCoverSeed", title = "Percent Cover Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Cover crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2021 Cover Crop Seed Use
+
+```{r}
+plotOutput("OGCoverSeedMap2021")
+```
+
+```{r, context="server", OGCoverSeedMap2021, echo=FALSE}
+
+output$OGCoverSeedMap2021 <- renderPlot({
+  if (input$Y2021) {
+    GradientMap (input = input, question = "OGCoverSeed", title = "2021 Percent Cover Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2021")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2016 Cover Crop Seed Use
+
+```{r}
+plotOutput("OGCoverSeedMap2016")
+```
+
+```{r, context="server", OGCoverSeedMap2016, echo=FALSE}
+
+output$OGCoverSeedMap2016 <- renderPlot({
+  if (input$Y2016) {
+    GradientMap (input = input, question = "OGCoverSeed", title = "2016 Percent Cover Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2016")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Organic Field Crop Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Overall Field Crop Seed Use
+  
+```{r}
+plotOutput("FieldOGSeed")
+```
+
+```{r, context="server", FieldOGSeed, echo=FALSE}
+output$FieldOGSeed <- renderPlot({
+  
+BoxPlot (input = input, question = "OGFieldSeed", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Range of Field Crop Seed Use
+
+```{r}
+plotOutput("OGFieldSeedBins")
+```
+
+```{r, context="server", OGFieldSeedBins, echo=FALSE}
+output$OGFieldSeedBins <- renderPlot({
+  
+  BinPlot (input = input, question = "OGFieldSeedBins", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Percentage of field crop acreage planted to organic seed"), ylab = "Percentage of repondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Field Crop Seed Use by Field Crop Acreage
+  
+```{r}
+plotOutput("FieldOGSeedByAcreage")
+```
+
+```{r, context="server", FieldOGSeedByAcreage, echo=FALSE}
+output$FieldOGSeedByAcreage <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "OGFieldSeed", title = "Percent Field Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2021 Field Crop Seed Use
+
+```{r}
+# Need to figure out how to hide the chunks if the map is not displayed
+plotOutput("OGFieldSeedMap2021")
+```
+
+```{r, context="server", OGFieldSeedMap2021, echo=FALSE}
+
+output$OGFieldSeedMap2021 <- renderPlot({
+  if (input$Y2021) {
+    GradientMap (input = input, question = "OGFieldSeed", title = "2021 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2021")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2016 Field Crop Seed Use
+
+```{r}
+plotOutput("OGFieldSeedMap2016")
+```
+
+```{r, context="server", OGFieldSeedMap2016, echo=FALSE}
+
+output$OGFieldSeedMap2016 <- renderPlot({
+  if (input$Y2016) {
+    GradientMap (input = input, question = "OGFieldSeed", title = "2016 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2016")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2011 Field Crop Seed Use
+
+```{r}
+plotOutput("OGFieldSeedMap2011")
+```
+
+```{r, context="server", OGFieldSeedMap2011, echo=FALSE}
+output$OGFieldSeedMap2011 <- renderPlot({
+  if (input$Y2011) {
+    GradientMap (input = input, question = "OGFieldSeed", title = "2011 Percent Field Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2011")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Organic Forage Crop Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Overall Forage Crop Seed Use
+  
+```{r}
+plotOutput("ForageOGSeed")
+```
+
+```{r, context="server", ForageOGSeed, echo=FALSE}
+output$ForageOGSeed <- renderPlot({
+  
+BoxPlot (input = input, question = "OGForageSeed", title = "Percent Forage Crop Acreage Planted To Organic Seed", xlab = XLabel(input, "Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Range of Forage Crop Seed Use
+
+```{r}
+plotOutput("OGForageSeedBins")
+```
+
+```{r, context="server", OGForageSeedBins, echo=FALSE}
+output$OGForageSeedBins <- renderPlot({
+  
+  BinPlot (input = input, question = "OGForageSeedBins", title = "Percent Forage Crop Acreage Planted To Organic Seed", xlab = XLabel(input, "Percentage of forage crop acreage planted to organic seed"), ylab = "Percentage of repondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Forage Crop Seed Use by Forage Crop Acreage
+  
+```{r}
+plotOutput("ForageOGSeedByAcreage")
+```
+
+```{r, context="server", ForageOGSeedByAcreage, echo=FALSE}
+output$ForageOGSeedByAcreage <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "OGForageSeed", title = "Percent Forage Crop Acreage Planted To Organic Seed", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2021 Forage Crop Seed Use
+
+```{r}
+# Need to figure out how to hide the chunks if the map is not displayed
+plotOutput("OGForageSeedMap2021")
+```
+
+```{r, context="server", OGForageSeedMap2021, echo=FALSE}
+
+output$OGForageSeedMap2021 <- renderPlot({
+  if (input$Y2021) {
+    GradientMap (input = input, question = "OGForageSeed", title = "2021 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2021")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2016 Forage Crop Seed Use
+
+```{r}
+plotOutput("OGForageSeedMap2016")
+```
+
+```{r, context="server", OGForageSeedMap2016, echo=FALSE}
+
+output$OGForageSeedMap2016 <- renderPlot({
+  if (input$Y2016) {
+    GradientMap (input = input, question = "OGForageSeed", title = "2016 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2016")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Map of 2011 Forage Crop Seed Use
+
+```{r}
+plotOutput("OGForageSeedMap2011")
+```
+
+```{r, context="server", OGForageSeedMap2011, echo=FALSE}
+output$OGForageSeedMap2011 <- renderPlot({
+  if (input$Y2011) {
+    GradientMap (input = input, question = "OGForageSeed", title = "2011 Percent Forage Crop Acreage Planted To Organic Seed", catlab =  "Percentage", year = "2011")
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+100% Organic Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Using All Organic Seed
+
+```{r}
+plotOutput("AllOGSeed")
+```
+
+```{r, context="server", AllOGSeed, echo=FALSE}
+output$AllOGSeed <- renderPlot({
+  
+  BoxPlot (input = input, question = "AllOGSeed", title = "Percentage of Producers Using Only Organic Seed", xlab = XLabel(input,"Share of producers"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### 100% Organic Seed Usage by Total Crop Acreage
+  
+```{r}
+plotOutput("AllOGSeedByAcreage")
+```
+
+```{r, context="server", AllOGSeedByAcreage, echo=FALSE}
+output$AllOGSeedByAcreage <- renderPlot({
+  
+CatPlot (input = input, category = "TotalAcreageBins", question = "AllOGSeed", title = "Percentage of Producers Using Only Organic Seed", xlab = XLabel(input,"Total crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### 2021 Regional Map of All Organic Seed Use
+
+```{r}
+plotOutput("AllOGSeed2021Map")
+```
+
+```{r, context="server", AllOGSeed2021Map, echo=FALSE}
+output$AllOGSeed2021Map <- renderPlot({
+  if (input$Y2021) {
+    
+    GradientMap (input = input, question = "AllOGSeed", title = "Percentage of 2021 Producers Using Only Organic Seed", catlab =  "Percentage", year = "2021")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### 2016 Regional Map of All Organic Seed Use
+
+```{r}
+plotOutput("AllOGSeed2016Map")
+```
+
+```{r, context="server", AllOGSeed2016Map, echo=FALSE}
+output$AllOGSeed2016Map <- renderPlot({
+  if (input$Y2016) {
+    
+    GradientMap (input = input, question = "AllOGSeed", title = "Percentage of 2016 Producers Using Only Organic Seed", catlab =  "Percentage", year = "2016")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### 2011 Regional Map of All Organic Seed Use
+
+```{r}
+plotOutput("AllOGSeed2011Map")
+```
+
+```{r, context="server", AllOGSeed2011Map, echo=FALSE}
+output$AllOGSeed2011Map <- renderPlot({
+  if (input$Y2011) {
+    
+    GradientMap (input = input, question = "AllOGSeed", title = "Percentage of 2011 Producers Using Only Organic Seed", catlab =  "Percentage", year = "2011")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Change in Organic Seed Usage {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+
+### Change in Organic Vegetable Seed Usage
+
+```{r}
+plotOutput("IncreasedOGVegSeed")
+```
+
+```{r, context="server", IncreasedOGVegSeed, echo=FALSE}
+output$IncreasedOGVegSeed <- renderPlot({
+  
+  BinPlot (input = input, question = "IncreasedOGVegSeed", title = "Over the last 3 years, have you decreased or increased the percentage of organic seed that you use in vegetable crops", xlab = XLabel(input, "Organic seed usage change"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Change in Organic Field Crop Seed Usage
+
+```{r}
+plotOutput("IncreasedOGFieldSeed")
+```
+
+```{r, context="server", IncreasedOGFieldSeed, echo=FALSE}
+output$IncreasedOGFieldSeed <- renderPlot({
+  
+  BinPlot (input = input, question = "IncreasedOGFieldSeed", title = "Over the last 3 years, have you decreased or increased the percentage of organic seed that you use in field crops", xlab = XLabel(input, "Organic seed usage change"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Change in Organic Cover Crop Seed Usage
+
+```{r}
+plotOutput("IncreasedOGCoverSeed")
+```
+
+```{r, context="server", IncreasedOGCoverSeed, echo=FALSE}
+output$IncreasedOGCoverSeed <- renderPlot({
+  
+  BinPlot (input = input, question = "IncreasedOGCoverSeed", title = "Over the last 3 years, have you decreased or increased the percentage of organic seed that you use in cover crops", xlab = XLabel(input, "Organic seed usage change"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Change in Organic Forage Crop Seed Usage
+
+```{r}
+plotOutput("IncreasedOGForageSeed")
+```
+
+```{r, context="server", IncreasedOGForageSeed, echo=FALSE}
+output$IncreasedOGForageSeed <- renderPlot({
+  
+  BinPlot (input = input, question = "IncreasedOGForageSeed", title = "Over the last 3 years, have you decreased or increased the percentage of organic seed that you use in forage crops", xlab = XLabel(input, "Organic seed usage change"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Seed Sources {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Seed Sourced From Own Production
+  
+```{r}
+plotOutput("SeedSourceOwn")
+```
+
+```{r, context="server", SeedSourceOwn, echo=FALSE}
+output$SeedSourceOwn <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceOwn", title = "Average Percentage of Seed Used That Was Sourced From Own Production", xlab = XLabel(input, "Average amount sourced"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Seed Sourced From Processor or Buyer
+
+```{r}
+plotOutput("SeedSourceBuyer")
+```
+
+```{r, context="server", SeedSourceBuyer, echo=FALSE}
+output$SeedSourceBuyer <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceBuyer", title = "Average Percentage of Seed Used That Was Sourced From Processor or Buyer", xlab = XLabel(input, "Average amount sourced"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Seed Sourced Directly From Seed Company
+
+```{r}
+plotOutput("SeedSourceComp")
+```
+
+```{r, context="server", SeedSourceComp, echo=FALSE}
+output$SeedSourceComp <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceComp", title = "Average Percentage of Seed Used That Was Sourced Directly From Seed Company (via catalog, sales rep, etc)", xlab = XLabel(input, "Average amount sourced"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Seed Sourced Directly From Farm or Garden Store
+
+```{r}
+plotOutput("SeedSourceGardenCenter")
+```
+
+```{r, context="server", SeedSourceGardenCenter, echo=FALSE}
+output$SeedSourceGardenCenter <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceGardenCenter", title = "Average Percentage of Seed Used That Was Sourced From Farm or Garden Store", xlab = XLabel(input, "Average amount sourced"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Seed Sourced Directly From Other Farmers
+```{r}
+plotOutput("SeedSourceFarm")
+```
+
+```{r, context="server", SeedSourceFarm, echo=FALSE}
+output$SeedSourceFarm <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceFarm", title = "Average Percentage of Seed Used That Was Sourced From Other Farmers", xlab = XLabel(input, "Average amount sourced"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Certifier Involvement with Organic Seed Use {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Certifier Requests Greater Steps for Organic Seed
+  
+```{r}
+plotOutput("CertifierRequest")
+```
+
+```{r, context="server", CertifierRequest, echo=FALSE}
+output$CertifierRequest <- renderPlot({
+  
+  BinPlot (input = input, question = "CertifierRequest", title = "Over the last 3 years, has your certifier requested that you take greater steps to source organic seed?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Certifier Requests Trials of Available Organic Varieties
+
+```{r}
+plotOutput("AddStepsTrial")
+```
+
+```{r, context="server", AddStepsTrial, echo=FALSE}
+output$AddStepsTrial <- renderPlot({
+  
+  BinPlot (input = input, question = "AddStepsTrial", title = "If your certifier requested additional steps to source organic seed, did they ask that you conduct trials of available organic varieties?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Certifier Requests Searching Online Database
+
+```{r}
+plotOutput("AddStepsSeedFinder")
+```
+
+```{r, context="server", AddStepsSeedFinder, echo=FALSE}
+output$AddStepsSeedFinder <- renderPlot({
+  
+  BinPlot (input = input, question = "AddStepsSeedFinder", title = "If your certifier requested additional steps to source organic seed, did they ask that you search Organic Seed Finder or another online database?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Certifier Requests Researching More Than 3 Seed Catalogs
+
+```{r}
+plotOutput("AddStepsCat")
+```
+
+```{r, context="server", AddStepsCat, echo=FALSE}
+output$AddStepsCat <- renderPlot({
+  
+  BinPlot (input = input, question = "AddStepsCat", title = "If your certifier requested additional steps to source organic seed, did they ask that you research more than 3 seed catalogs?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Certifier Requests Requesting Seed in a Timely Manner
+
+```{r}
+plotOutput("AddStepsTimely")
+```
+
+```{r, context="server", AddStepsTimely, echo=FALSE}
+output$AddStepsTimely <- renderPlot({
+  
+  BinPlot (input = input, question = "AddStepsTimely", title = "If your certifier requested additional steps to source organic seed, did they ask that you request seed in a timely manner?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Certifier Requests Contracting Organic Seed Production
+
+```{r}
+plotOutput("AddStepsContract")
+```
+
+```{r, context="server", AddStepsContract, echo=FALSE}
+output$AddStepsContract <- renderPlot({
+  
+  BinPlot (input = input, question = "AddStepsContract", title = "If your certifier requested additional steps to source organic seed, did they ask that you contract organic seed production?", XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+Organic Seed Production {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Producers Currently Saving Own Seed
+  
+```{r}
+plotOutput("SeedSourceOwn0or100")
+```
+
+```{r, context="server", SeedSourceOwn0or100, echo=FALSE}
+output$SeedSourceOwn0or100 <- renderPlot({
+  
+  BoxPlot (input = input, question = "SeedSourceOwn0or100", title = "Percentage of Producers Growing Their Own Seed", xlab = XLabel(input, "Share of producers"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### 2021 Regional Map of Producers Currently Saving Own Seed
+  
+```{r}
+plotOutput("SeedSourceOwn0or100_2021Map")
+```
+
+```{r, context="server", SeedSourceOwn0or100_2021Map, echo=FALSE}
+output$SeedSourceOwn0or100_2021Map <- renderPlot({
+  if (input$Y2021) {
+    
+    GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2021 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2021")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### 2016 Regional Map of Producers Currently Saving Own Seed
+  
+```{r}
+plotOutput("SeedSourceOwn0or100_2016Map")
+```
+
+```{r, context="server", SeedSourceOwn0or100_2016Map, echo=FALSE}
+output$SeedSourceOwn0or100_2016Map <- renderPlot({
+  if (input$Y2016) {
+    
+    GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2016 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2016")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### 2011 Regional Map of Producers Currently Saving Own Seed
+  
+```{r}
+plotOutput("SeedSourceOwn0or100_2011Map")
+```
+
+```{r, context="server", SeedSourceOwn0or100_2011Map, echo=FALSE}
+output$SeedSourceOwn0or100_2011Map <- renderPlot({
+  if (input$Y2011) {
+    
+    GradientMap (input = input, question = "SeedSourceOwn0or100", title = "Percentage of 2011 Producers Growing Their Own Seed", catlab =  "Percentage", year = "2011")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Current Seed Production Status
+
+```{r}
+plotOutput("ProduceOGSeed")
+```
+
+```{r, context="server", ProduceOGSeed, echo=FALSE}
+output$ProduceOGSeed <- renderPlot({
+  
+  BinPlot (input = input, question = "ProduceOGSeed", title = "Which of the following categories best fit your situation pertaining to producing organic seed?", xlab = XLabel(input, "Interest level"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Interest in Growing Organic Seed
+
+```{r}
+plotOutput("SeedInterest")
+```
+
+```{r, context="server", SeedInterest, echo=FALSE}
+output$SeedInterest <- renderPlot({
+  
+  BinPlot (input = input, question = "SeedInterest", title = "Are you interested in producing organic seed for commercial use at some point in the future?", xlab = XLabel(input, "Seed production category"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### 2021 Regional Map of Producers Interested in Growing Seed
+  
+```{r}
+plotOutput("SeedInterestYN_2021Map")
+```
+
+```{r, context="server", SeedInterestYN_2021Map, echo=FALSE}
+output$SeedInterestYN_2021Map <- renderPlot({
+  if (input$Y2021) {
+    
+    GradientMap (input = input, question = "SeedInterestYN", title = "Percentage of 2021 Producers Interested in Growing Seed", catlab =  "Percentage", year = "2021")
+    
+  }
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Factors in Not Purchasing Organic Seed {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Lack of Seed Treatments
+  
+```{r}
+plotOutput("NoOGSeedTreat")
+```
+
+```{r, context="server", NoOGSeedTreat, echo=FALSE}
+output$NoOGSeedTreat <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedTreat", title = "How much was lack of seed treatments (such as pelleting or priming) a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Lack of Seed Treatments a Moderate or Significant Factor by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedTreatByVegAcre")
+```
+
+```{r, context="server", NoOGSeedTreatByVegAcre, echo=FALSE}
+output$NoOGSeedTreatByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedTreatModSig", title = "Lack of Seed Treatments a Moderate or Significant Factor by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Lack of Seed Treatments a Moderate or Significant Factor by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedTreatByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedTreatByFieldAcre, echo=FALSE}
+output$NoOGSeedTreatByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedTreatModSig", title = "Lack of Seed Treatments a Moderate or Significant Factor by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Lack of Seed Treatments a Moderate or Significant Factor by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedTreatByForageAcre")
+```
+
+```{r, context="server", NoOGSeedTreatByForageAcre, echo=FALSE}
+output$NoOGSeedTreatByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedTreatModSig", title = "Lack of Seed Treatments a Moderate or Significant Factor by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Buyer Requires Variety Not Available As Organic
+
+```{r}
+plotOutput("NoOGSeedProcessor")
+```
+
+```{r, context="server", NoOGSeedProcessor, echo=FALSE}
+output$NoOGSeedProcessor <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedProcessor", title = "How much was processor (buyer) requiring or supplying varieties that are not available organically a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Buyer Requires Variety Not Available As Organic by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedProcessorByVegAcre")
+```
+
+```{r, context="server", NoOGSeedProcessorByVegAcre, echo=FALSE}
+output$NoOGSeedProcessorByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedProcessorModSig", title = "Buyer Requires Variety Not Available As Organic by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Buyer Requires Variety Not Available As Organic by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedProcessorByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedProcessorByFieldAcre, echo=FALSE}
+output$NoOGSeedProcessorByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedProcessorModSig", title = "Buyer Requires Variety Not Available As Organic by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Buyer Requires Variety Not Available As Organic by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedProcessorByForageAcre")
+```
+
+```{r, context="server", NoOGSeedProcessorByForageAcre, echo=FALSE}
+output$NoOGSeedProcessorByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedProcessorModSig", title = "Buyer Requires Variety Not Available As Organic by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Insufficient Quantity of Seed
+
+```{r}
+plotOutput("NoOGSeedQuant")
+```
+
+```{r, context="server", NoOGSeedQuant, echo=FALSE}
+output$NoOGSeedQuant <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedQuant", title = "How much was an insufficient quantity of seed a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Insufficient Quantity of Seed by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedQuantByVegAcre")
+```
+
+```{r, context="server", NoOGSeedQuantByVegAcre, echo=FALSE}
+output$NoOGSeedQuantByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedQuantModSig", title = "Insufficient Quantity of Seed by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Insufficient Quantity of Seed by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedQuantByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedQuantByFieldAcre, echo=FALSE}
+output$NoOGSeedQuantByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedQuantModSig", title = "Insufficient Quantity of Seed by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Insufficient Quantity of Seed by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedQuantByForageAcre")
+```
+
+```{r, context="server", NoOGSeedQuantByForageAcre, echo=FALSE}
+output$NoOGSeedQuantByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedQuantModSig", title = "Insufficient Quantity of Seed by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Save Own Seed
+
+```{r}
+plotOutput("NoOGSeedSave")
+```
+
+```{r, context="server", NoOGSeedSave, echo=FALSE}
+output$NoOGSeedSave <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedSave", title = "How much was saving your own seed a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Save Own Seed by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedSaveByVegAcre")
+```
+
+```{r, context="server", NoOGSeedSaveByVegAcre, echo=FALSE}
+output$NoOGSeedSaveByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedSaveModSig", title = "Save Own Seed by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Save Own Seed by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedSaveByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedSaveByFieldAcre, echo=FALSE}
+output$NoOGSeedSaveByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedSaveModSig", title = "Save Own Seed by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Save Own Seed by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedSaveByForageAcre")
+```
+
+```{r, context="server", NoOGSeedSaveByForageAcre, echo=FALSE}
+output$NoOGSeedSaveByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedSaveModSig", title = "Save Own Seed by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Distrust of organic seed quality
+
+```{r}
+plotOutput("NoOGSeedQual")
+```
+
+```{r, context="server", NoOGSeedQual, echo=FALSE}
+output$NoOGSeedQual <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedQual", title = "How much was distrust of organic seed quality a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Distrust of organic seed quality by vegetable acreage
+  
+```{r}
+plotOutput("NoOGSeedQualByVegAcre")
+```
+
+```{r, context="server",NoOGSeedQualByVegAcre, echo=FALSE}
+output$NoOGSeedQualByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedQualModSig", title = "Distrust of organic seed quality by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Distrust of organic seed quality by field crop acreage
+  
+```{r}
+plotOutput("NoOGSeedQualByFieldAcre")
+```
+
+```{r, context="server",NoOGSeedQualByFieldAcre, echo=FALSE}
+output$NoOGSeedQualByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedQualModSig", title = "Distrust of organic seed quality by field crop acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Distrust of organic seed quality by forage crop acreage
+  
+```{r}
+plotOutput("NoOGSeedQualByForageAcre")
+```
+
+```{r, context="server",NoOGSeedQualByForageAcre, echo=FALSE}
+output$NoOGSeedQualByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedQualModSig", title = "Distrust of organic seed quality by forage crop acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Price
+
+```{r}
+plotOutput("NoOGSeedPrice")
+```
+
+```{r, context="server", NoOGSeedPrice, echo=FALSE}
+output$NoOGSeedPrice <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedPrice", title = "How much was price a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Price by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedPriceModSig")
+```
+
+```{r, context="server", NoOGSeedPriceModSig, echo=FALSE}
+output$NoOGSeedPriceModSig <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedPriceModSig", title = "Price by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Price by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedPriceByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedPriceByFieldAcre, echo=FALSE}
+output$NoOGSeedPriceByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedPriceModSig", title = "Price by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Price by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedPriceByForageAcre")
+```
+
+```{r, context="server", NoOGSeedPriceByForageAcre, echo=FALSE}
+output$NoOGSeedPriceByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedPriceModSig", title = "Price by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Variety not available as organic seed
+
+```{r}
+plotOutput("NoOGSeedVar")
+```
+
+```{r, context="server", NoOGSeedVar, echo=FALSE}
+output$NoOGSeedVar <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedVar", title = "How much was the inavailability of specific varieties in organic seed a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Variety not available as organic seed by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedVarByVegAcre")
+```
+
+```{r, context="server", NoOGSeedVarByVegAcre, echo=FALSE}
+output$NoOGSeedVarByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedVarModSig", title = "Variety not available as organic seed by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Variety not available as organic seed by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedVarByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedVarByFieldAcre, echo=FALSE}
+output$NoOGSeedVarByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedVarModSig", title = "Variety not available as organic seed by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Variety not available as organic seed by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedVarByForageAcre")
+```
+
+```{r, context="server", NoOGSeedVarByForageAcre, echo=FALSE}
+output$NoOGSeedVarByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedVarModSig", title = "Variety not available as organic seed by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Lack of desirable genetic traits
+
+```{r}
+plotOutput("NoOGSeedTrait")
+```
+
+```{r, context="server", NoOGSeedTrait, echo=FALSE}
+output$NoOGSeedTrait <- renderPlot({
+  
+  BinPlot (input = input, question = "NoOGSeedTrait", title = "How much was the lack of desirable genetic traits a factor in your decision NOT to purchase organic seed?", xlab = XLabel(input, "Factors"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Lack of desirable genetic traits by Vegetable Acreage
+  
+```{r}
+plotOutput("NoOGSeedTraitByVegAcre")
+```
+
+```{r, context="server", NoOGSeedTraitByVegAcre, echo=FALSE}
+output$NoOGSeedTraitByVegAcre <- renderPlot({
+  
+CatPlot (input = input, category = "VegiAcreageBins", question = "NoOGSeedTraitModSig", title = "Lack of desirable genetic traits by Vegetable Acreage", xlab = XLabel(input,"Vegetable acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Lack of desirable genetic traits by Field Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedTraitByFieldAcre")
+```
+
+```{r, context="server", NoOGSeedTraitByFieldAcre, echo=FALSE}
+output$NoOGSeedTraitByFieldAcre <- renderPlot({
+  
+CatPlot (input = input, category = "FieldAcreageBins", question = "NoOGSeedTraitModSig", title = "Lack of desirable genetic traits by Field Crop Acreage", xlab = XLabel(input,"Field crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+### Lack of desirable genetic traits by Forage Crop Acreage
+  
+```{r}
+plotOutput("NoOGSeedTraitByForageAcre")
+```
+
+```{r, context="server", NoOGSeedTraitByForageAcre, echo=FALSE}
+output$NoOGSeedTraitByForageAcre <- renderPlot({
+  
+CatPlot (input = input, category = "ForageAcreageBins", question = "NoOGSeedTraitModSig", title = "Lack of desirable genetic traits by Forage Crop Acreage", xlab = XLabel(input,"Forage crop acreage"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+```
+
+Opinions on Genetic Engineering and Organic Seeds {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Company Testing for GE Contamination
+  
+```{r}
+plotOutput("GMOTesting")
+```
+
+```{r, context="server", GMOTesting, echo=FALSE}
+output$GMOTesting <- renderPlot({
+  
+  BinPlot (input = input, question = "GMOTesting", title = "Seed companies should conduct testing and report rates of GE (GMO) crop contamination in organic and conventional seed", xlab = XLabel(input, "Sentiment"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Federal GE Crop Regulations.
+
+```{r}
+plotOutput("Regulations")
+```
+
+```{r, context="server", Regulations, echo=FALSE}
+output$Regulations <- renderPlot({
+  
+  BinPlot (input = input, question = "Regulations", title = "The federal regulations that oversee GE crop (GMOs) approvals are adequate for protecting my organic farm product(s) from potential contamination by GE crops (GMOs)", xlab = XLabel(input, "Sentiment"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### GE Risk For Organic
+
+```{r}
+plotOutput("RiskfromGMO")
+```
+
+```{r, context="server", RiskfromGMO, echo=FALSE}
+output$RiskfromGMO <- renderPlot({
+  
+  BinPlot (input = input, question = "RiskfromGMO", title = "Unintentionally planting GE-contaminated seed on my farm puts at risk the integrity of my organic products", xlab = XLabel(input, "Sentiment"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Organic Seed for Organic Integrity
+
+```{r}
+plotOutput("OGSeedOGIntegrity")
+```
+
+```{r, context="server", OGSeedOGIntegrity, echo=FALSE}
+output$OGSeedOGIntegrity <- renderPlot({
+  
+  BinPlot (input = input, question = "OGSeedOGIntegrity", title = "Organic seed is important to the integrity of organic food production", xlab = XLabel(input, "Sentiment"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Organic Breeding for Success of Organic Farming
+
+```{r}
+plotOutput("OGVarietiesSuccess")
+```
+
+```{r, context="server", OGVarietiesSuccess, echo=FALSE}
+output$OGVarietiesSuccess <- renderPlot({
+  
+  BinPlot (input = input, question = "OGVarietiesSuccess", title = "Varieties bred for organic production are important to the overall success of organic agriculture", xlab = XLabel(input, "Sentiment"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+Organic Breeding Needs {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Are There Crops in Need of Organic Plant Breeding 
+  
+```{r}
+plotOutput("CropsNeedBreed")
+```
+
+```{r, context="server", CropsNeedBreed, echo=FALSE}
+output$CropsNeedBreed <- renderPlot({
+  
+  BinPlot (input = input, question = "CropsNeedBreed", title = "Do you think there are crops in need of organic plant breeding?", xlab = XLabel(input, "Response"), ylab = "Percentage of Respondents")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+### Top 10 Crops in Need of Organic Breeding
+
+```{r}
+plotOutput("BreedTop10")
+```
+
+```{r, context="server", BreedTop10, echo=FALSE}
+output$BreedTop10 <- renderPlot({
+  
+  BreedPlot (input = input, question = "BreedTop10", title = "Top 10 crops in most need of improvement", xlab = XLabel(input, "Crop"), ylab = "Percentage")
+  
+})  %>% bindCache(input$state, input$Y2021, input$Y2016, input$Y2011, input$crop_type, input$show_n, input$color_palette, input$crop_size, input$show_title)
+
+```
+
+Additional Figures {.storyboard data-navmenu="Crop producers"  data-width=700}
+=====================================
+  
+### Average percent acreage planted to organic seed by crop type
+
+```{r}
+plotOutput("OGSeedByCrop")
+```
+
+
+```{r, context="server", OGSeedByCrop, echo=FALSE}
+output$OGSeedByCrop <- renderPlot({
+  
+  CannedPlot (input = input, dataset = "ogbycrop", question = "PercentAcres", category = "CropType", title = "Average percent acreage planted to organic seed", xlab = "Crop type", ylab = "Average percent organic seed used")
+  
+})  %>% bindCache(input$Y2021, input$Y2016, input$Y2011, input$color_palette, input$show_title)
+
+```
+
+### Average percent acreage planted to organic seed by crop type
+
+```{r}
+plotOutput("totalogacres")
+```
+
+
+```{r, context="server", totalogacres, echo=FALSE}
+output$totalogacres <- renderPlot({
+  
+  CannedPlot (input = input, dataset = "totalogacres", question = "PercentAcres", category = "CropType", title = "Percent of total acreage planted to organic seed", xlab = "Crop type", ylab = "Percent of total acreage")
+  
+})  %>% bindCache(input$Y2021, input$Y2016, input$Y2011, input$color_palette, input$show_title)
+
+```
+
+<!----
+Data collection {.storyboard data-navmenu="Seed producers" data-width=700}
+=======================================================================
+
+### Data collection methods
+  
+We conducted a formal survey of organic seed growers and organic seed suppliers. The purpose was to identify the operational characteristics of producers and companies in the organic seed industry, assess the challenges they experience, and their perceptions on key issues facing organic seed. 
+ 
+The survey was distributed to 416 seed producers from the National Organic Program list and 90 organic seed companies. We heard from 88 seed producers and 39 companies that range in scale and size. Together there were 127 responses out of 506 seed producers and companies, for a 25% response rate.
+
+Those who have completed this survey take part in a number of organic seed-related activities:
+
+* Breeding: 58 respondents  
+* Seed production: 119 respondents  
+* Seed handling and/or processing: 36 respondents  
+* Seed retail: 67 respondents  
+
+While respondents take part in a whole mix of activities, we provided a filter (left) to analyze the groups based on those that only take part in breeding and production ("Seed breeding & production only"), which is 54 respondents, and those that take part in some kind of seed handling and retail ("Seed production & retail"), which is 73 respondents.  
+
+--->
+
+Seed producer demographics {.storyboard data-navmenu="Seed producers" data-width=700}
+=======================================================================
+
+### Seed producer locations by region
+
+```{r map prerender}
+plotlyOutput("ProducerMap")
+```
+
+```{r map, context = "server"}
+counts <- us_states %>% select(Region, regional_n) %>% unique() %>% arrange(regional_n)
+
+us_states$n <- factor(us_states$regional_n)
+levels(us_states$n) <- c(paste(counts[1,1], counts[1,2], sep = ": "),
+                         paste(counts[2,1], counts[2,2], sep = ": "),
+                         paste(counts[3,1], counts[3,2], sep = ": "),
+                         paste(counts[4,1], counts[4,2], sep = ": "))
+
+output$ProducerMap <- renderPlotly({
+  mapPlot(input = input, title = "Map of organic seed producer/company survey responses")
+}) 
+
+```
+
+### What crops has your operation produced over the last five years?
+
+```{r crop categort prerender}
+plotlyOutput("CropCat")
+``` 
+
+```{r crop category, context = "server"}
+output$CropCat <- renderPlotly({
+  cropPlot(input = input, title = "Crops produced over the last five years")
+}) 
+```
+
+### What was your operation's approximate gross annual revenue in 2019?
+
+```{r income prerender}
+plotlyOutput("ProducerIncome")
+``` 
+
+```{r income, context = "server"}
+output$ProducerIncome <- renderPlotly({
+  incomePlot(input = input, title = "Operation annual revenue")
+}) 
+```
+
+### How many years have you been involved in farming and seed production?  
+
+```{r years prerender}
+plotlyOutput("ProducerYears")
+``` 
+
+```{r, context = "server"}
+output$ProducerYears <- renderPlotly({
+  yrsPlot(input = input, title = "Years in organic farming and seed production")
+}) 
+```
+
+Challenges {.storyboard data-navmenu="Seed producers" data-width=700}
+=======================================================================
+
+### Production challenges: How much have the following been a challenge to you in your work with organic seed?  
+
+```{r prod challenges prerender}
+plotlyOutput("ProductionChall")
+``` 
+
+```{r rendering prod challenges, context = "server"}
+output$ProductionChall <- renderPlotly({
+  challPlot(input = input, production = T, title = "Organic seed producer production challenges")
+})
+```
+
+### Non-production challenges: How much have the following been a challenge to you in your work with organic seed?  
+```{r nonprod challenges prerender}
+plotlyOutput("NonproductionChall")
+``` 
+
+```{r rendering nonprod challenges, context = "server"}
+output$NonproductionChall <- renderPlotly({
+  challPlot(input = input, production = F, title = "Organic seed producer non-production challenges")
+})
+```
+
+Seed producer perspectives {.storyboard data-navmenu="Seed producers" data-width=700}
+=======================================================================
+
+### For the following types of intellectual property protections, how would you describe their impact on the  organic seed system? 
+```{r ipr prerender}
+plotlyOutput("Produceripr")
+``` 
+
+```{r rendering ipr, context = "server"}
+output$Produceripr <- renderPlotly({
+  iprPlot(input = input, title = "Seed producer/company views on IPR strategies")
+})
+```
+
+### In your region, what do you think the effect of climate change will be on agriculture during your lifetime? 
+
+```{r cceff prerender}
+plotlyOutput("ProducerCCeff")
+``` 
+
+```{r rendering CCeff, context = "server"}
+output$ProducerCCeff <- renderPlotly({
+  cceffPlot(input = input, title = "Seed producer/company views on climate change effects")
+})
+```
+
+
+<!----Researcher data collection {.storyboard data-navmenu="Researchers" data-width=700}
+=======================================================================
+### Overview
+
+We conducted a formal survey of organic seed researchers. The purpose was to better understand the successes, challenges, and opportunities for organic seed research, as well as researchers' perspectives on key issues.  
+
+The survey was distributed to a total of 77 researchers. Researchers were identified based on their receipt of organic research grants, participation in OSA research programs, recent publications on organic seed, and through a snowballing survey method. Of the 77 researchers contacted there were 51 full responses for a response rate of 66%. 
+--->
+
+Researcher demographics {.storyboard data-navmenu="Researchers" data-width=700}
+=======================================================================
+
+### Seed researcher locations by region
+
+```{r map researcher prerender}
+plotlyOutput("ResearcherMap")
+```
+
+```{r map researcher, context = "server"}
+counts <- us_states_r %>% select(Region, regional_n) %>% unique() %>% arrange(regional_n)
+
+us_states_r$n <- factor(us_states_r$regional_n)
+levels(us_states_r$n) <- c(paste(counts[1,1], counts[1,2], sep = ": "),
+                         paste(counts[2,1], counts[2,2], sep = ": "),
+                         paste(counts[3,1], counts[3,2], sep = ": "),
+                         paste(counts[4,1], counts[4,2], sep = ": "))
+
+output$ResearcherMap <- renderPlotly({
+  researchermapPlot(input = input, title = "Map of organic seed researcher survey responses")
+}) 
+
+```
+
+### What crops do you work with in your research?
+
+```{r crop category researcher prerender}
+plotlyOutput("ResearcherCrop")
+``` 
+
+```{r crop category researcher, context = "server"}
+output$ResearcherCrop <- renderPlotly({
+  researchercropPlot(input = input, title = "Crops organic seed researchers specialize in")
+}) 
+```
+
+
+### How much expertise do you consider yourself to have in each of the following topics?
+
+```{r expertise prerender}
+plotlyOutput("Expertise")
+``` 
+
+```{r expertise, context = "server"}
+output$Expertise <- renderPlotly({
+  expertisePlot(input = input, title = "Organic seed work research expertise")
+})
+```
+
+### What best identifies your research area? 
+
+```{r discipline prerender}
+plotlyOutput("Discipline")
+``` 
+
+```{r discipline, context = "server"}
+output$Discipline <- renderPlotly({
+  disciplinePlot(input = input, title = "Disciplinary specialities")
+}) 
+```
+
+
+Project outcomes {.storyboard data-navmenu="Researchers" data-width=700}
+=======================================================================
+
+### What were the successes and/or outcomes from your most recent organic seed project?
+
+```{r success prerender}
+plotlyOutput("ResearcherSuccess")
+``` 
+
+
+```{r success, context = "server"}
+output$ResearcherSuccess <- renderPlotly({
+  successPlot(input = input, title = "Successes of organic seed research projects")
+})
+```
+
+### What were the challenges experienced in your most recent organic seed project?
+
+```{r projchallenge prerender}
+plotlyOutput("ResearcherChallenges")
+``` 
+
+
+```{r projchallenge, context = "server"}
+output$ResearcherChallenges <- renderPlotly({
+  projchallPlot(input = input, title = "Challenges of organic seed research projects")
+})
+```
+
+### Were any finished varieties or breeding material released as part of this project?
+
+```{r finished rendered}
+plotlyOutput("Finished")
+```
+
+```{r finished, context = "server"}
+output$Finished <- renderPlotly({
+  finishedPlot(input = input, title = "Finished varieties from organic seed research projects")
+})
+```
+
+### What mechanisms, if any, were used to protect released material? 
+```{r protections rendered}
+plotlyOutput("Mechanisms")
+```
+
+```{r protections, context = "server"}
+output$Mechanisms <- renderPlotly({
+  mechanismsPlot(input = input, title = "Mechanisms used to protect released material")
+})
+```
+
+Researcher perspectives {.storyboard data-navmenu="Researchers" data-width=700}
+=======================================================================
+
+### For the following types of intellectual property protections, how would you describe their impact on the  organic seed system? 
+```{r ipr researcher prerender}
+plotlyOutput("Researcheripr")
+``` 
+
+```{r rendering researcher ipr, context = "server"}
+output$Researcheripr <- renderPlotly({
+  researcheriprPlot(input = input, title = "Seed researcher views on IPR strategies")
+})
+```
+
+### In your region, what do you think the effect of climate change will be on agriculture during your lifetime? 
+
+```{r cceff researcher prerender}
+plotlyOutput("ResearcherCCeff")
+``` 
+
+```{r rendering researcher CCeff, context = "server"}
+output$ResearcherCCeff <- renderPlotly({
+  researchercceffPlot(input = input, title = "Seed researcher views on climate change effects")
+})
+```
+
+### How important are the following crop characteristics in the context of your research? 
+
+```{r priority prerender}
+plotlyOutput("ResearcherPriority")
+``` 
+
+```{r priority, context = "server"}
+output$ResearcherPriority <- renderPlotly({
+  priorityPlot(input = input, title = "Organic researcher crop characteristic priorities")
+})
+```
+
+
+Funding {.storyboard} 
+=====================================
+
+### Funding for organic seed and breeding initiatives by year 
+
+```{r funding yr prerender}
+plotOutput("FundingbyYr")
+``` 
+
+```{r funding yr, context = "server"}
+output$FundingbyYr <- renderPlot({
+  fundingbyYrPlot(input = input, 
+                  title = "Funding for organic initiatives by year")
+})
+```
+
+### Funding for public organic seed and breeding initiatives by funding source
+
+```{r funding source prerender}
+plotOutput("FundingbySource")
+``` 
+
+```{r funding source, context = "server"}
+output$FundingbySource <- renderPlot({
+  fundingbyXPlot(input = input, x = "funding_source", 
+                 xlab = "Source",  title = "Funding for public organic initiatives by source")
+})
+```
+
+### Funding for public organic seed and breeding initiatives by research topic
+
+```{r funding topic prerender}
+plotOutput("FundingbyTopic")
+``` 
+
+```{r funding topic, context = "server"}
+output$FundingbyTopic <- renderPlot({
+  fundingbyXPlot(input = input, x = "proj_type",  
+                 xlab = "Topic", title = "Funding for public organic initiatives by research topic")
+})
+```
+
+
+Seed Network {.storyboard} 
+=======================================================================
+
+### Organic seed network map
+
+```{r network map prerender}
+plotOutput("Networkmap", height = paste0(PLOT_HEIGHT,"px"), width = paste0(PLOT_WIDTH,"px"))
+```
+
+```{r network map, context = "server"}
+output$Networkmap <- renderPlot({
+  netmapPlot(input = input)})
+```
+
+### Organic seed network abstract visualization
+
+```{r networkmap prerender}
+plotOutput("Network")
+```
+
+```{r networkmap, context = "server"}
+output$Network <- renderPlot({
+  netPlot(input = input)})
+```
+
+### Summary tables of network
+
+##### Actors  {data-height=348}
+```{r summary role prerender}
+tableOutput("rolesummary")
+``` 
+
+```{r rendering role, context = "server"}
+output$rolesummary <- renderTable({
+  netDesc(input = input, summary.object = roles)})
+```
+
+##### Regions {data-height=380}
+```{r summary region prerender}
+tableOutput("regionsummary")
+``` 
+
+```{r rendering location, context = "server"}
+output$regionsummary <- renderTable({
+  netDesc(input = input, summary.object = locations)})
+```
+
+
