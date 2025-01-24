@@ -969,21 +969,250 @@ USDAPlot <- function () {
 
 ### Function to make plots for breeding crops ----
 
+# BreedPlot_internal <- function (input, question, title, xlab, ylab) {
+# 
+#   # Display while loading
+#   validate(need(input$color_palette, 'Please wait, the figure is loading'))
+# 
+#   # Avoid red error message when nothing is selected for input$state by validating
+#   validate(need(input$state, 'Please choose at least one state.'))
+#   validate(need(input$crop_size, 'Please choose a farm size.'))
+#   validate(need(input$Y2011 | input$Y2016 | input$Y2021, 'Please choose at least one year.'))
+#   validate(need((!is.null(data[["BreedCatA"]]) & input$Y2021) |
+#                   (!is.null(data2016[["BreedCatA"]]) & input$Y2016) |
+#                   (!is.null(data2011[["BreedCatA"]]) & input$Y2011)
+#                 , 'Data not available for this question for the year(s) selected'))
+# 
+# 
+#   # Build empty dataframe to add year summary data to
+#   out <- data_frame(
+#     "summary" = integer(),
+#     "summary_low" = integer(),
+#     "summary_upp" = integer(),
+#     "n" = integer(),
+#     "summary_labels" = character(),
+#     "year" = character()
+#   )
+# 
+#   # Empty color palette
+#   graph_color <- character()
+# 
+#   # Code for 2011 data
+#   if (!is.null(data2011[["BreedCatA"]]) & input$Y2011) {
+# 
+#     # Filter
+#     data2011 <- FilterData(data2011, input)
+# 
+#   }
+# 
+#   # Compile breeding questions
+#   data2011 <- gather(data2011, Question, Category, BreedCatA, BreedCatB)
+#   data2011$BreedTop10 <- as.factor(ifelse (data2011$Category %in% names(sort(table(data2011$Category),decreasing = TRUE)[2:11]), data2011$Category , NA))
+# 
+#   # remove extra rows that did not have one of the top 10 crops for selected subset
+#   data2011 <- data2011[!is.na(data2011$BreedTop10),]
+# 
+#   if (nrow(data2011) >= MINIMUM_N) {
+# 
+#     mydesign2011 <- data2011 %>% as_survey_design(id = 1, weight  = weight)
+# 
+#     if (nrow(data2011) >= MINIMUM_N) {
+#       # Create summary data of means and confidence intervals for bins
+#       out2011 <- mydesign2011 %>%
+#         group_by_at(question) %>%
+#         summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+#         mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+#       out2011$summary_labels <- paste("n=",out2011$n,sep="")
+#       out2011$year <- "2011"
+# 
+#       # merge with overall summary
+#       out <- merge(out,out2011, all=TRUE)
+# 
+#       # Add color to graph_color
+#       graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2011)
+#     }
+#   }
+# 
+#   # Code for 2016 data
+#   if (!is.null(data2016[["BreedCatA"]]) & input$Y2016) {
+# 
+#     # Filter
+#     data2016 <- FilterData(data2016, input)
+# 
+#   }
+# 
+#   # Compile breeding questions
+#   data2016 <- gather(data2016, Question, Category, BreedCatA, BreedCatB)
+#   data2016$BreedTop10 <- as.factor(ifelse (data2016$Category %in% names(sort(table(data2016$Category),decreasing = TRUE)[2:11]), data2016$Category , NA))
+# 
+#   if (nrow(data2016) >= MINIMUM_N) {
+# 
+#     # remove extra rows that did not have one of the top 10 crops for selected subset
+#     data2016 <- data2016[!is.na(data2016$BreedTop10),]
+# 
+#     mydesign2016 <- data2016 %>% as_survey_design(id = 1, weight  = weight)
+# 
+#     if (nrow(data2016) >= MINIMUM_N) {
+#       # Create summary data of means and confidence intervals for bins
+#       out2016 <- mydesign2016 %>%
+#         group_by_at(question) %>%
+#         summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+#         mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+#       out2016$summary_labels <- paste("n=",out2016$n,sep="")
+#       out2016$year <- "2016"
+# 
+#       # merge with overall summary
+#       out <- merge(out,out2016, all=TRUE)
+# 
+#       # Add color to graph_color
+#       graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2016)
+#     }
+#   }
+# 
+#   # Code for 2021 data
+#   if (!is.null(data[["BreedCatA"]]) & input$Y2021) {
+# 
+#     # Filter
+#     data <- FilterData(data, input)
+#   }
+# 
+#   # Compile breeding questions
+#   data <- gather(data, Question, Category, BreedCatA, BreedCatB)
+#   data$BreedTop10 <- as.factor(ifelse (data$Category %in% names(sort(table(data$Category),decreasing = TRUE)[2:11]), data$Category , NA))
+# 
+#   if (nrow(data) >= MINIMUM_N) {
+# 
+#     # remove extra rows that did not have one of the top 10 crops for selected subset
+#     data <- data[!is.na(data$BreedTop10),]
+# 
+#     mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
+# 
+#     if (nrow(data) >= MINIMUM_N) {
+#       # Create summary data of means and confidence intervals for bins
+#       out2021 <- mydesign %>%
+#         group_by_at(question) %>%
+#         summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+#         mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+#       out2021$summary_labels <- paste("n=",out2021$n,sep="")
+#       out2021$year <- "2021"
+# 
+#       # merge with overall summary
+#       out <- merge(out,out2021, all=TRUE)
+# 
+#       # Add color to graph_color
+#       graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2021)
+#     }
+#   }
+# 
+#   # Check if there are enough data points to show
+#   validate(need(nrow(out) >= MINIMUM_N, "Not enough data for plot with current filters"))
+# 
+#   # Only show title if title checkbox selected
+#   title <- ifelse (input$show_title == TRUE, title,"")
+# 
+#   # ggplot of means (geom_bar) and error (geom_errorbar) for bins
+#   p <- ggplot(data = out, aes_string(x = question, y = "summary",  fill = "year")) +
+#     geom_bar(stat = "identity", color = "black", width = 0.8, position = position_dodge(width=0.9)) +
+#     geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp",  fill = "year"), inherit.aes = FALSE, size=.75, width=.1, position = position_dodge(width=0.9)) +
+#     #    ylim(0,100) +
+#     geom_shadowtext(aes(label=round(summary,0), vjust=-0.2), color="black", size=LABELSIZE-1, bg.color="white", position = position_dodge(width = 0.9)) +
+#     theme_linedraw(base_size = BASESIZE) +
+#     labs(title = stringr::str_wrap(str_to_sentence(title), width = WRAPWIDTH),
+#          x = str_to_sentence(xlab), y = str_to_sentence(ylab), fill = "Year")  +
+#     scale_x_discrete(labels = function(x) str_wrap(str_to_sentence(x), width = WRAPWIDTH)) +
+#     theme(plot.title = element_text(hjust = 0.5)) +
+#     theme(axis.text.x = element_text(angle=45, hjust = 1)) +
+#     theme(text = element_text(family = FONTTYPE)) +
+#     theme(legend.title = element_text(family = FONTTYPE)) +
+#     theme(axis.title = element_text(family = FONTTYPE)) +
+#     scale_fill_manual(values = graph_color)
+# 
+#   # Remove legend if only one year
+#   if (length(levels(as.factor(out$year))) == 1) {
+#     p <- p +  theme(legend.position="none")
+#   }
+# 
+#   if (input$show_n) {
+#     p <- p + geom_text(aes(label=summary_labels, vjust = -2.7), color="black", size=LABELSIZE-4, position = position_dodge(width=0.9))
+#   }
+# 
+#   plot(p)
+# 
+# }
+
+# Testing to see if calling the 2021 data "data is the problem
+data2021 <- data
+
+# Function to filter data
+filter_data <- function(data, input, year) {
+  if (!is.null(data[["BreedCatA"]]) & input[[year]]) {
+    data <- FilterData(data, input)
+  }
+  return(data)
+}
+
+# Function to compile breeding questions
+compile_breeding_questions <- function(data) {
+  data <- gather(data, Question, Category, BreedCatA, BreedCatB)
+  data$BreedTop10 <- as.factor(ifelse(data$Category %in% names(sort(table(data$Category), decreasing = TRUE)[2:11]), data$Category, NA))
+  data <- data[!is.na(data$BreedTop10),]
+  return(data)
+}
+
+# Function to create summary data
+create_summary <- function(data, question, year) {
+  mydesign <- data %>% as_survey_design(id = 1, weight = weight)
+  out <- mydesign %>%
+    group_by_at(question) %>%
+    summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
+    mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
+  out$summary_labels <- paste("n=", out$n, sep = "")
+  out$year <- year
+  return(out)
+}
+
+# Function to create plot
+create_plot <- function(out, question, title, xlab, ylab, input, graph_color) {
+  p <- ggplot(data = out, aes_string(x = question, y = "summary", fill = "year")) +
+    geom_bar(stat = "identity", color = "black", width = 0.8, position = position_dodge(width = 0.9)) +
+    geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp", fill = "year"), inherit.aes = FALSE, size = .75, width = .1, position = position_dodge(width = 0.9)) +
+    geom_shadowtext(aes(label = round(summary, 0), vjust = -0.2), color = "black", size = LABELSIZE - 1, bg.color = "white", position = position_dodge(width = 0.9)) +
+    theme_linedraw(base_size = BASESIZE) +
+    labs(title = stringr::str_wrap(str_to_sentence(title), width = WRAPWIDTH),
+         x = str_to_sentence(xlab), y = str_to_sentence(ylab), fill = "Year") +
+    scale_x_discrete(labels = function(x) str_wrap(str_to_sentence(x), width = WRAPWIDTH)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme(text = element_text(family = FONTTYPE)) +
+    theme(legend.title = element_text(family = FONTTYPE)) +
+    theme(axis.title = element_text(family = FONTTYPE)) +
+    scale_fill_manual(values = graph_color)
+
+  if (length(levels(as.factor(out$year))) == 1) {
+    p <- p + theme(legend.position = "none")
+  }
+
+  if (input$show_n) {
+    p <- p + geom_text(aes(label = summary_labels, vjust = -2.7), color = "black", size = LABELSIZE - 4, position = position_dodge(width = 0.9))
+  }
+
+  return(p)
+}
+
+# New version of BreedPlot_internal
 BreedPlot_internal <- function (input, question, title, xlab, ylab) {
-  
   # Display while loading
   validate(need(input$color_palette, 'Please wait, the figure is loading'))
-  
+
   # Avoid red error message when nothing is selected for input$state by validating
-  validate(need(input$state, 'Please choose at least one state.'))   
+  validate(need(input$state, 'Please choose at least one state.'))
   validate(need(input$crop_size, 'Please choose a farm size.'))
   validate(need(input$Y2011 | input$Y2016 | input$Y2021, 'Please choose at least one year.'))
-  validate(need((!is.null(data[["BreedCatA"]]) & input$Y2021) |
+  validate(need((!is.null(data2021[["BreedCatA"]]) & input$Y2021) |
                   (!is.null(data2016[["BreedCatA"]]) & input$Y2016) |
-                  (!is.null(data2011[["BreedCatA"]]) & input$Y2011)
-                , 'Data not available for this question for the year(s) selected'))
-  
-  
+                  (!is.null(data2011[["BreedCatA"]]) & input$Y2011),
+                'Data not available for this question for the year(s) selected'))
+
   # Build empty dataframe to add year summary data to
   out <- data_frame(
     "summary" = integer(),
@@ -993,151 +1222,41 @@ BreedPlot_internal <- function (input, question, title, xlab, ylab) {
     "summary_labels" = character(),
     "year" = character()
   )
-  
+
   # Empty color palette
   graph_color <- character()
-  
-  # Code for 2011 data
-  if (!is.null(data2011[["BreedCatA"]]) & input$Y2011) {
-    
-    # Filter
-    data2011 <- FilterData(data2011, input)
-    
-  }
-  
-  # Compile breeding questions
-  data2011 <- gather(data2011, Question, Category, BreedCatA, BreedCatB)
-  data2011$BreedTop10 <- as.factor(ifelse (data2011$Category %in% names(sort(table(data2011$Category),decreasing = TRUE)[2:11]), data2011$Category , NA))
-  
-  # remove extra rows that did not have one of the top 10 crops for selected subset
-  data2011 <- data2011[!is.na(data2011$BreedTop10),]
-  
-  if (nrow(data2011) >= MINIMUM_N) {
-    
-    mydesign2011 <- data2011 %>% as_survey_design(id = 1, weight  = weight)
-    
-    if (nrow(data2011) >= MINIMUM_N) {
-      # Create summary data of means and confidence intervals for bins
-      out2011 <- mydesign2011 %>%
-        group_by_at(question) %>%
-        summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
-        mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-      out2011$summary_labels <- paste("n=",out2011$n,sep="")
-      out2011$year <- "2011"
-      
-      # merge with overall summary
-      out <- merge(out,out2011, all=TRUE)
-      
-      # Add color to graph_color
-      graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2011)
+
+  # Loop through years
+  years <- c("Y2011", "Y2016", "Y2021")
+  for (year in years) {
+    data <- switch(year,
+                   "Y2011" = data2011,
+                   "Y2016" = data2016,
+                   "Y2021" = data2021
+    )
+
+    # Filter data
+    if (!is.null(data[["BreedCatA"]]) & input[[year]]) {
+      data <- FilterData(data, input)
+    }
+
+    if (!is.null(data[["BreedCatA"]])) {
+      # Compile breeding questions
+      data <- compile_breeding_questions(data)
+
+      # Create summary data
+      out_year <- create_summary(data, question, str_remove(year, "Y"))
+      out <- merge(out, out_year, all = TRUE)
+
+      # Add color to palette
+      graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]][[year]])
     }
   }
-  
-  # Code for 2016 data
-  if (!is.null(data2016[["BreedCatA"]]) & input$Y2016) {
-    
-    # Filter
-    data2016 <- FilterData(data2016, input)
-    
-  }
-  
-  # Compile breeding questions
-  data2016 <- gather(data2016, Question, Category, BreedCatA, BreedCatB)
-  data2016$BreedTop10 <- as.factor(ifelse (data2016$Category %in% names(sort(table(data2016$Category),decreasing = TRUE)[2:11]), data2016$Category , NA))
-  
-  if (nrow(data2016) >= MINIMUM_N) {
-    
-    # remove extra rows that did not have one of the top 10 crops for selected subset
-    data2016 <- data2016[!is.na(data2016$BreedTop10),]
-    
-    mydesign2016 <- data2016 %>% as_survey_design(id = 1, weight  = weight)
-    
-    if (nrow(data2016) >= MINIMUM_N) {
-      # Create summary data of means and confidence intervals for bins
-      out2016 <- mydesign2016 %>%
-        group_by_at(question) %>%
-        summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
-        mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-      out2016$summary_labels <- paste("n=",out2016$n,sep="")
-      out2016$year <- "2016"
-      
-      # merge with overall summary
-      out <- merge(out,out2016, all=TRUE)
-      
-      # Add color to graph_color
-      graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2016)
-    }
-  }
-  
-  # Code for 2021 data
-  if (!is.null(data[["BreedCatA"]]) & input$Y2021) {
-    
-    # Filter
-    data <- FilterData(data, input)
-  }
-  
-  # Compile breeding questions
-  data <- gather(data, Question, Category, BreedCatA, BreedCatB)
-  data$BreedTop10 <- as.factor(ifelse (data$Category %in% names(sort(table(data$Category),decreasing = TRUE)[2:11]), data$Category , NA))
-  
-  if (nrow(data) >= MINIMUM_N) {
-    
-    # remove extra rows that did not have one of the top 10 crops for selected subset
-    data <- data[!is.na(data$BreedTop10),]
-    
-    mydesign <- data %>% as_survey_design(id = 1, weight  = weight)
-    
-    if (nrow(data) >= MINIMUM_N) {
-      # Create summary data of means and confidence intervals for bins
-      out2021 <- mydesign %>%
-        group_by_at(question) %>%
-        summarize(summary = survey_mean(vartype = "ci"), n = unweighted(n())) %>%
-        mutate(summary = summary * 100, summary_low = summary_low * 100, summary_upp = summary_upp * 100)
-      out2021$summary_labels <- paste("n=",out2021$n,sep="")
-      out2021$year <- "2021"
-      
-      # merge with overall summary
-      out <- merge(out,out2021, all=TRUE)
-      
-      # Add color to graph_color
-      graph_color <- c(graph_color, COLOR_PALETTE[[input$color_palette]]$Y2021)
-    }
-  }
-  
-  # Check if there are enough data points to show
-  validate(need(nrow(out) >= MINIMUM_N, "Not enough data for plot with current filters"))
-  
-  # Only show title if title checkbox selected
-  title <- ifelse (input$show_title == TRUE, title,"")
-  
-  # ggplot of means (geom_bar) and error (geom_errorbar) for bins
-  p <- ggplot(data = out, aes_string(x = question, y = "summary",  fill = "year")) +
-    geom_bar(stat = "identity", color = "black", width = 0.8, position = position_dodge(width=0.9)) +
-    geom_errorbar(alpha = 1, mapping = aes_string(question, ymin = "summary_low", ymax = "summary_upp",  fill = "year"), inherit.aes = FALSE, size=.75, width=.1, position = position_dodge(width=0.9)) +
-    #    ylim(0,100) +
-    geom_shadowtext(aes(label=round(summary,0), vjust=-0.2), color="black", size=LABELSIZE-1, bg.color="white", position = position_dodge(width = 0.9)) +
-    theme_linedraw(base_size = BASESIZE) +
-    labs(title = stringr::str_wrap(str_to_sentence(title), width = WRAPWIDTH),
-         x = str_to_sentence(xlab), y = str_to_sentence(ylab), fill = "Year")  +
-    scale_x_discrete(labels = function(x) str_wrap(str_to_sentence(x), width = WRAPWIDTH)) + 
-    theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x = element_text(angle=45, hjust = 1)) +
-    theme(text = element_text(family = FONTTYPE)) +
-    theme(legend.title = element_text(family = FONTTYPE)) +
-    theme(axis.title = element_text(family = FONTTYPE)) +
-    scale_fill_manual(values = graph_color)
-  
-  # Remove legend if only one year
-  if (length(levels(as.factor(out$year))) == 1) {
-    p <- p +  theme(legend.position="none")
-  }
-  
-  if (input$show_n) {
-    p <- p + geom_text(aes(label=summary_labels, vjust = -2.7), color="black", size=LABELSIZE-4, position = position_dodge(width=0.9))
-  }
-  
-  plot(p)
-  
+
+  # Create plot
+  p <- create_plot(out, question, title, xlab, ylab, input, graph_color)
+
+  return(p)
 }
 
 # External function with caching	

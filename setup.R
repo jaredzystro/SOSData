@@ -1,21 +1,21 @@
 ###############################################################################
 ###############################################################################
-### Initialize packages, read data, set graphics constants----
-# rm(list=ls())
-# 
-# install_or_load_pack <- function(pack){
-#   # from https://nhsrcommunity.com/blog/a-simple-function-to-install-and-load-packages-in-r/
-#   create.pkg <- pack[!(pack %in% installed.packages()[, "Package"])]
-#   if (length(create.pkg))
-#   {
-#     install.packages(create.pkg, dependencies = TRUE, repos = "http://cran.us.r-project.org")
-#   }
-#   sapply(pack, require, character.only = TRUE)
-# }
-# 
-# # Comment out package installation prior to deploying
-# packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph","shinycssloaders", "memoise", "shadowtext")
-# install_or_load_pack(packages)
+## Initialize packages, read data, set graphics constants----
+rm(list=ls())
+
+install_or_load_pack <- function(pack){
+  # from https://nhsrcommunity.com/blog/a-simple-function-to-install-and-load-packages-in-r/
+  create.pkg <- pack[!(pack %in% installed.packages()[, "Package"])]
+  if (length(create.pkg))
+  {
+    install.packages(create.pkg, dependencies = TRUE, repos = "http://cran.us.r-project.org")
+  }
+  sapply(pack, require, character.only = TRUE)
+}
+
+# Comment out package installation prior to deploying
+packages <- c("survey","ggplot2","shiny","plyr","dplyr","srvyr", "sf", "spData","stringr","maps","ggiraph","shinycssloaders", "memoise", "shadowtext")
+install_or_load_pack(packages)
 
 library(survey)
 library(ggplot2)
